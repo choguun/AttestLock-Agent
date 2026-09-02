@@ -65,7 +65,7 @@ Prerequisites: Node 22+, pnpm 11.24+, Foundry, and optionally PostgreSQL 17 for 
 
 ```bash
 pnpm install --frozen-lockfile
-forge install --root contracts foundry-rs/forge-std@v1.9.7 --no-git
+(cd contracts && forge install foundry-rs/forge-std@v1.9.7 --no-git)
 pnpm verify
 ```
 
