@@ -11,4 +11,5 @@ contracts/broadcast/
 contracts/lib/
 artifacts/
 *.log
+*.tsbuildinfo
 .DS_Store
