@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. An always-on worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: implementation, automated tests, the public repository, hosted judge-safe web preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, and explorer evidence remain blocked on funded testnet credentials and are deliberately not claimed.
+> Current status: implementation, automated tests, green hosted CI, the public repository, hosted judge-safe web preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, and explorer evidence remain blocked on funded testnet credentials and are deliberately not claimed.
 
 **Hosted preview:** https://attestlock-web-production.up.railway.app
 

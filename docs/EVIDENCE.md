@@ -30,22 +30,22 @@ This checklist prevents build output or mocked fixtures from being presented as 
 
 ## Evidence table
 
-| Field                   | Value                                            |
-| ----------------------- | ------------------------------------------------ |
-| Public repository       | https://github.com/choguun/AttestLock-Agent      |
-| Git commit              | Pending                                          |
-| Sepolia deployment      | Pending                                          |
-| Creditcoin deployment   | Pending                                          |
-| Sepolia lock tx         | Pending                                          |
-| Attested block/time     | Pending                                          |
-| Sanitized proof fixture | Pending                                          |
-| Creditcoin proof tx     | Pending                                          |
-| Creditcoin borrow tx    | Pending                                          |
-| Junk refusal job        | Pending                                          |
-| Hosted web URL          | https://attestlock-web-production.up.railway.app |
-| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`        |
-| Worker health URL       | Pending                                          |
-| CI run                  | Pending                                          |
+| Field                   | Value                                                                |
+| ----------------------- | -------------------------------------------------------------------- |
+| Public repository       | https://github.com/choguun/AttestLock-Agent                          |
+| Git commit              | `65f79c9`                                                            |
+| Sepolia deployment      | Pending                                                              |
+| Creditcoin deployment   | Pending                                                              |
+| Sepolia lock tx         | Pending                                                              |
+| Attested block/time     | Pending                                                              |
+| Sanitized proof fixture | Pending                                                              |
+| Creditcoin proof tx     | Pending                                                              |
+| Creditcoin borrow tx    | Pending                                                              |
+| Junk refusal job        | Pending                                                              |
+| Hosted web URL          | https://attestlock-web-production.up.railway.app                     |
+| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                            |
+| Worker health URL       | Pending                                                              |
+| CI run                  | https://github.com/choguun/AttestLock-Agent/actions/runs/33672079969 |
 
 ## Sanitization
 

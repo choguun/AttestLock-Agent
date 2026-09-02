@@ -26,7 +26,7 @@ Explicitly excluded: native ETH, multiple assets, price oracles, interest, liqui
 - [x] Contracts compile and automated proof/pool tests pass.
 - [x] Worker and UI type-check, test, and production-build locally.
 - [x] Live deployment scripts and sanitized manifests exist.
-- [x] Public GitHub repository; hosted CI result pending.
+- [x] Public GitHub repository and green hosted CI.
 - [ ] Sepolia and Creditcoin testnet deployments.
 - [ ] One live proof-to-line-to-borrow transcript.
 - [ ] Junk, tampered-proof, and replay live evidence.
