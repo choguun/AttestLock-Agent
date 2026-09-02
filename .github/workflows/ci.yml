@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: attestlock
+          POSTGRES_PASSWORD: attestlock
+          POSTGRES_DB: attestlock_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U attestlock -d attestlock_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_TEST_URL: postgres://attestlock:attestlock@127.0.0.1:5432/attestlock_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Foundry test dependency
+        run: forge install foundry-rs/forge-std@v1.9.7 --no-git
+      - name: Verify formatting, types, tests, and builds
+        run: pnpm verify
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

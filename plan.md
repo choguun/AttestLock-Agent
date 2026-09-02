@@ -1,0 +1,51 @@
+# AttestLock Agent — delivery plan and status
+
+**Hackathon:** BUIDL CTC 2026 Fall · primary track DeFi
+**Extended deadline:** September 13, 2026 at 23:59 ET / September 14 at 10:59 Asia/Bangkok
+**Internal target:** submit one day early
+
+## Product bet
+
+Lock `100 mUSDC` on Sepolia, prove the exact successful escrow transaction with Attestcoin, open a 50% seven-day Creditcoin line, and let only the borrower draw it. A junk transaction must visibly fail closed.
+
+## Scope
+
+Shipped in code:
+
+- six-decimal one-time-faucet `MockUSDC` and expiring `LockVault`;
+- official-ABI `AttestLockASC`, replay protection, exact receipt/event policy;
+- ASC-only `CreditPool`, six-decimal `MockUSD`, borrower-only borrow, open repayment;
+- signed and quota-limited worker API, PostgreSQL persistence, restart recovery, retries, preflight, SSE;
+- responsive wallet UI for source flow, proof evidence, refusal, borrow, and repay;
+- CI, deployment scripts, clean-clone verification, and judge documentation.
+
+Explicitly excluded: native ETH, multiple assets, price oracles, interest, liquidation, batch proofs, source-chain writability, mainnet, automatic borrowing, and LLM financial decisions.
+
+## Evidence gates
+
+- [x] Contracts compile and automated proof/pool tests pass.
+- [x] Worker and UI type-check, test, and production-build locally.
+- [x] Live deployment scripts and sanitized manifests exist.
+- [ ] Public GitHub repository and green hosted CI.
+- [ ] Sepolia and Creditcoin testnet deployments.
+- [ ] One live proof-to-line-to-borrow transcript.
+- [ ] Junk, tampered-proof, and replay live evidence.
+- [ ] Railway web/worker/PostgreSQL services.
+- [ ] Visually verified six-slide PPTX/PDF.
+- [ ] Recorded 90-second live demo.
+- [ ] DoraHacks submission.
+
+No unchecked evidence gate may be described as complete. See `docs/EVIDENCE.md` for the exact live-chain acceptance criteria.
+
+## Schedule
+
+| Date     | Exit criterion                             |
+| -------- | ------------------------------------------ |
+| Sep 3–4  | Public baseline, contracts, security tests |
+| Sep 5    | Worker, persistence, proof adapter         |
+| Sep 6    | First real Sepolia → Creditcoin proof      |
+| Sep 7–8  | Borrow/repay UI and Railway judge path     |
+| Sep 9–10 | Negative paths, restart, clean-room test   |
+| Sep 11   | Documentation and deck                     |
+| Sep 12   | Video and complete submission draft        |
+| Sep 13   | Freeze, smoke test, submit                 |

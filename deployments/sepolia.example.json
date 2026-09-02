@@ -1,0 +1,12 @@
+{
+  "chainId": 11155111,
+  "network": "Sepolia",
+  "deployedAt": null,
+  "deployer": null,
+  "contracts": {
+    "MockUSDC": null,
+    "LockVault": null
+  },
+  "transactions": {},
+  "explorerUrls": {}
+}

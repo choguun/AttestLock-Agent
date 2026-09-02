@@ -1,0 +1,18 @@
+{
+  "chainId": 102031,
+  "network": "Creditcoin Testnet",
+  "deployedAt": null,
+  "deployer": null,
+  "contracts": {
+    "MockUSD": null,
+    "CreditPool": null,
+    "AttestLockASC": null
+  },
+  "sourceBindings": {
+    "chainKey": 1,
+    "LockVault": null,
+    "MockUSDC": null
+  },
+  "transactions": {},
+  "explorerUrls": {}
+}

@@ -1,0 +1,14 @@
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
+artifacts/
+*.log
+.DS_Store

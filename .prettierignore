@@ -1,0 +1,8 @@
+node_modules
+**/dist
+**/coverage
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+attest-coin.md
