@@ -40,7 +40,7 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Foundry test dependency
-        run: forge install foundry-rs/forge-std@v1.9.7 --no-git
+        run: forge install --root contracts foundry-rs/forge-std@v1.9.7 --no-git
       - name: Verify formatting, types, tests, and builds
         run: pnpm verify
 

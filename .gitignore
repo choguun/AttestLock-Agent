@@ -9,6 +9,7 @@ contracts/cache/
 contracts/out/
 contracts/broadcast/
 contracts/lib/
+lib/
 artifacts/
 *.log
 *.tsbuildinfo
