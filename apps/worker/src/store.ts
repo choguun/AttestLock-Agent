@@ -194,7 +194,10 @@ export class PostgresJobStore implements JobStore {
   }
 
   async transition(id: string, input: TransitionInput): Promise<Job> {
-    const evidence = this.sql.json(input.evidence ?? {});
+    const evidenceValues = Object.fromEntries(
+      Object.entries(input.evidence ?? {}).filter((entry) => entry[1] !== undefined)
+    ) as Record<string, string | number>;
+    const evidence = this.sql.json(evidenceValues);
     const rows = await this.sql<Array<JobRow>>`
       update jobs set
         status = ${input.status},

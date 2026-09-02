@@ -26,12 +26,12 @@ Explicitly excluded: native ETH, multiple assets, price oracles, interest, liqui
 - [x] Contracts compile and automated proof/pool tests pass.
 - [x] Worker and UI type-check, test, and production-build locally.
 - [x] Live deployment scripts and sanitized manifests exist.
-- [ ] Public GitHub repository and green hosted CI.
+- [x] Public GitHub repository; hosted CI result pending.
 - [ ] Sepolia and Creditcoin testnet deployments.
 - [ ] One live proof-to-line-to-borrow transcript.
 - [ ] Junk, tampered-proof, and replay live evidence.
-- [ ] Railway web/worker/PostgreSQL services.
-- [ ] Visually verified six-slide PPTX/PDF.
+- [x] Railway project, Singapore web preview, worker skeleton, and private PostgreSQL. Worker activation awaits live addresses and relayer credentials.
+- [x] Visually verified six-slide PPTX/PDF.
 - [ ] Recorded 90-second live demo.
 - [ ] DoraHacks submission.
 

@@ -4,7 +4,9 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', '**/contracts/lib/**', '**/contracts/out/**'] },
+  {
+    ignores: ['**/.tmp/**', '**/dist/**', '**/coverage/**', '**/contracts/lib/**', '**/contracts/out/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,

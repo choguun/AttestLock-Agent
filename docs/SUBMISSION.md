@@ -35,14 +35,14 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 
 ## Required links
 
-| Field             | URL                             |
-| ----------------- | ------------------------------- |
-| Public repository | Pending repository creation     |
-| Hosted demo       | Pending Railway deployment      |
-| Demo video        | Pending live evidence recording |
-| Slide deck PDF    | Pending final export            |
-| Sepolia lock      | Pending funded deployment       |
-| Creditcoin proof  | Pending funded deployment       |
-| Creditcoin borrow | Pending funded deployment       |
+| Field             | URL                                                                                           |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| Public repository | https://github.com/choguun/AttestLock-Agent                                                   |
+| Hosted demo       | https://attestlock-web-production.up.railway.app                                              |
+| Demo video        | Pending live evidence recording                                                               |
+| Slide deck PDF    | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck.pdf |
+| Sepolia lock      | Pending funded deployment                                                                     |
+| Creditcoin proof  | Pending funded deployment                                                                     |
+| Creditcoin borrow | Pending funded deployment                                                                     |
 
 Do not submit until every pending field required by the [official hackathon page](https://dorahacks.io/hackathon/buidl-ctc-2026-fall/detail) is populated and independently opened in a clean browser session.
