@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AttestLock Agent</title>
+  <desc id="desc">A lime proof seal surrounding a locked credit line</desc>
+  <rect width="512" height="512" rx="112" fill="#080b0a"/>
+  <path d="M256 62 420 156v200L256 450 92 356V156L256 62Z" fill="#111513" stroke="#c7ff4a" stroke-width="24"/>
+  <path d="M190 238v-42c0-42 27-74 66-74s66 32 66 74v42" fill="none" stroke="#68e6b4" stroke-width="30" stroke-linecap="round"/>
+  <rect x="154" y="224" width="204" height="154" rx="28" fill="#c7ff4a"/>
+  <path d="m210 307 30 30 66-70" fill="none" stroke="#080b0a" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -15,8 +15,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  challenge(wallet: string): Promise<Challenge> {
-    return request('/api/challenges', { method: 'POST', body: JSON.stringify({ wallet }) });
+  challenge(wallet: string, txHash: string): Promise<Challenge> {
+    return request('/api/challenges', { method: 'POST', body: JSON.stringify({ wallet, txHash }) });
   },
   createJob(input: CreateJobRequest): Promise<Job> {
     return request('/api/jobs', { method: 'POST', body: JSON.stringify(input) });

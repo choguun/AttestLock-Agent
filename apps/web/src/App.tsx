@@ -6,19 +6,22 @@ import { StatusTimeline } from './StatusTimeline';
 import {
   approveCollateral,
   borrow,
+  canBorrowLine,
   chainLabel,
   connectWallet,
   faucet,
+  formatTimestamp,
   lockCollateral,
+  readBalances,
   readCreditLine,
   repay,
   shortAddress,
   switchChain,
+  watchWallet,
   type CreditLineView,
   type WalletSession,
+  walletErrorMessage,
 } from './wallet';
-
-const exampleInvalidTx = `0x${'00'.repeat(32)}`;
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -29,14 +32,24 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   );
 }
 
+function CopyValue({ value, label }: { value: string; label: string }) {
+  return (
+    <button className="copy-button" type="button" onClick={() => void navigator.clipboard.writeText(value)}>
+      Copy {label}
+    </button>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<WalletSession | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [manualTx, setManualTx] = useState(exampleInvalidTx);
+  const [manualTx, setManualTx] = useState(config.invalidTxHash);
   const [notice, setNotice] = useState('Connect a wallet to begin.');
   const [busy, setBusy] = useState<string | null>(null);
   const [line, setLine] = useState<CreditLineView | null>(null);
   const [creditTx, setCreditTx] = useState<string | null>(null);
+  const [sourceTx, setSourceTx] = useState<{ label: string; hash: string } | null>(null);
+  const [balances, setBalances] = useState<Partial<{ collateral: string; credit: string }>>({});
   const latest = jobs[0];
   const executed = jobs.find((job) => job.status === 'executed' && job.evidence.lockId);
 
@@ -46,7 +59,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !isConfigured) return;
     void refreshJobs(session.address);
     const stream = new EventSource(
       `${config.apiUrl}/api/events?wallet=${encodeURIComponent(session.address)}`
@@ -57,6 +70,23 @@ export default function App() {
     });
     return () => stream.close();
   }, [refreshJobs, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    return watchWallet(() => {
+      void connectWallet().then((next) => {
+        setSession(next);
+        setLine(null);
+        setBalances({});
+        setNotice(`Wallet changed to ${shortAddress(next.address)} on ${chainLabel(next.chainId)}.`);
+      });
+    });
+  }, [session?.address]);
+
+  useEffect(() => {
+    if (!session || !isConfigured) return;
+    void refreshBalancesFor(session);
+  }, [session]);
 
   useEffect(() => {
     if (!session || session.chainId !== config.creditcoinChainId || !executed?.evidence.lockId) return;
@@ -72,19 +102,33 @@ export default function App() {
 
   async function act(label: string, action: () => Promise<void>) {
     setBusy(label);
+    setNotice(`${label}…`);
     try {
       await action();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(walletErrorMessage(error));
     } finally {
       setBusy(null);
     }
   }
 
+  async function refreshBalancesFor(currentSession: WalletSession) {
+    try {
+      const next = await readBalances(currentSession);
+      setBalances((current) => ({ ...current, ...next }));
+    } catch {
+      // Balance evidence is helpful but does not control transaction safety.
+    }
+  }
+
   async function queue(txHash: string) {
     if (!session) throw new Error('Connect a wallet first.');
-    const challenge = await api.challenge(session.address);
-    const signature = await session.signer.signMessage(challenge.message);
+    const challenge = await api.challenge(session.address, txHash);
+    const signature = await session.signer.signTypedData(
+      challenge.typedData.domain,
+      challenge.typedData.types,
+      challenge.typedData.message
+    );
     const job = await api.createJob({ txHash, wallet: session.address, signature, nonce: challenge.nonce });
     setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
     setNotice('Proof job queued. The worker can prove the lock, but it cannot borrow for you.');
@@ -166,6 +210,10 @@ export default function App() {
             <span>Term</span>
             <strong>15 days</strong>
           </div>
+          <div className="term-row compact-row">
+            <span>Wallet balance</span>
+            <strong>{balances?.collateral ?? '—'} mUSDC</strong>
+          </div>
           <div className="action-grid">
             <button
               className="button secondary"
@@ -184,9 +232,12 @@ export default function App() {
                 !session || session.chainId !== config.sepoliaChainId || !isConfigured || busy !== null
               }
               onClick={() =>
-                void act('Claiming faucet tokens', async () =>
-                  setNotice(`Faucet confirmed: ${await faucet(session!.signer)}`)
-                )
+                void act('Claiming faucet tokens', async () => {
+                  const hash = await faucet(session!.signer);
+                  setSourceTx({ label: 'Faucet', hash });
+                  await refreshBalancesFor(session!);
+                  setNotice('Faucet transaction confirmed.');
+                })
               }
             >
               Claim faucet
@@ -197,9 +248,11 @@ export default function App() {
                 !session || session.chainId !== config.sepoliaChainId || !isConfigured || busy !== null
               }
               onClick={() =>
-                void act('Approving vault', async () =>
-                  setNotice(`Approval confirmed: ${await approveCollateral(session!.signer)}`)
-                )
+                void act('Approving vault', async () => {
+                  const hash = await approveCollateral(session!.signer);
+                  setSourceTx({ label: 'Approval', hash });
+                  setNotice('Vault approval confirmed.');
+                })
               }
             >
               Approve 100
@@ -212,6 +265,8 @@ export default function App() {
               onClick={() =>
                 void act('Locking collateral', async () => {
                   const locked = await lockCollateral(session!.signer);
+                  setSourceTx({ label: 'Lock', hash: locked.txHash });
+                  await refreshBalancesFor(session!);
                   setNotice(`Collateral locked as ${locked.lockId.slice(0, 12)}…`);
                   await queue(locked.txHash);
                 })
@@ -220,6 +275,14 @@ export default function App() {
               Lock + prove
             </button>
           </div>
+          {sourceTx && (
+            <p className="transaction-link">
+              <ExternalLink href={`${config.sepoliaExplorer}/tx/${sourceTx.hash}`}>
+                {sourceTx.label} transaction
+              </ExternalLink>{' '}
+              <CopyValue value={sourceTx.hash} label="hash" />
+            </p>
+          )}
           <p className="microcopy">
             Withdrawal is available from the source vault only after expiry. Creditcoin cannot seize the
             Sepolia collateral in V1.
@@ -271,7 +334,19 @@ export default function App() {
               {latest.evidence.queryId && (
                 <div>
                   <dt>Query ID</dt>
-                  <dd>{latest.evidence.queryId.slice(0, 12)}…</dd>
+                  <dd>
+                    {latest.evidence.queryId.slice(0, 12)}…{' '}
+                    <CopyValue value={latest.evidence.queryId} label="query ID" />
+                  </dd>
+                </div>
+              )}
+              {latest.evidence.lockId && (
+                <div>
+                  <dt>Lock ID</dt>
+                  <dd>
+                    {latest.evidence.lockId.slice(0, 12)}…{' '}
+                    <CopyValue value={latest.evidence.lockId} label="lock ID" />
+                  </dd>
                 </div>
               )}
             </dl>
@@ -289,12 +364,23 @@ export default function App() {
           <div className="metric accent">
             <span>Maximum credit</span>
             <strong>
-              {line?.limit ?? '50.00'} <small>mUSD</small>
+              {line?.limit ?? '—'} <small>mUSD</small>
             </strong>
           </div>
           <div className="term-row">
             <span>Current debt</span>
-            <strong>{line?.debt ?? '0.00'} mUSD</strong>
+            <strong>{line?.debt ?? '—'} mUSD</strong>
+          </div>
+          <div className="line-details">
+            <span>
+              Line maturity <strong>{line ? formatTimestamp(line.maturity) : '—'}</strong>
+            </span>
+            <span>
+              Collateral expiry <strong>{line ? formatTimestamp(line.collateralUnlockAt) : '—'}</strong>
+            </span>
+            <span>
+              Wallet balance <strong>{balances?.credit ?? '—'} mUSD</strong>
+            </span>
           </div>
           <button
             className="button secondary full"
@@ -311,9 +397,7 @@ export default function App() {
             <button
               className="button primary"
               disabled={
-                !session ||
-                session.chainId !== config.creditcoinChainId ||
-                !executed?.evidence.lockId ||
+                !canBorrowLine(session?.address, session?.chainId, executed?.evidence.lockId, line) ||
                 busy !== null
               }
               onClick={() =>
@@ -321,6 +405,7 @@ export default function App() {
                   const hash = await borrow(session!.signer, executed!.evidence.lockId!, '50');
                   setCreditTx(hash);
                   setLine(await readCreditLine(session!.signer, executed!.evidence.lockId!));
+                  await refreshBalancesFor(session!);
                   setNotice('Borrow confirmed by your wallet.');
                 })
               }
@@ -342,6 +427,7 @@ export default function App() {
                   const hash = await repay(session!.signer, executed!.evidence.lockId!, line!.debt);
                   setCreditTx(hash);
                   setLine(await readCreditLine(session!.signer, executed!.evidence.lockId!));
+                  await refreshBalancesFor(session!);
                   setNotice('Repayment confirmed.');
                 })
               }
@@ -390,7 +476,7 @@ export default function App() {
             onChange={(event) => setManualTx(event.target.value)}
             spellCheck={false}
           />
-          <button className="button danger" disabled={!session || busy !== null}>
+          <button className="button danger" disabled={!session || !isConfigured || busy !== null}>
             Prove it fails
           </button>
         </form>

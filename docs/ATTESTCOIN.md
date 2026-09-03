@@ -38,6 +38,8 @@ Preflight is a cost and operations control, not the trust boundary. The destinat
 0x0000000000000000000000000000000000000FD2
 ```
 
+The contract intentionally calls the official verifier ABI directly instead of inheriting generic `ASCBase.execute`. The current base hook receives the action, query ID, and encoded transaction but not `chainKey`; AttestLock must reject every non-Sepolia proof before business logic. Differential tests keep its proof tuple and query-ID packing aligned with the official base implementation.
+
 It then decodes the proof-contained transaction with `EvmV1Decoder` and checks:
 
 - supported Ethereum transaction type;

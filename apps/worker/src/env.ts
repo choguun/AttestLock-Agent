@@ -21,7 +21,10 @@ const schema = z.object({
   SOURCE_TOKEN_ADDRESS: address,
   ATTESTLOCK_ASC_ADDRESS: address,
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
+  PUBLIC_API_ORIGIN: z.string().url().default('http://localhost:3001'),
   MAX_JOBS_PER_WALLET_PER_DAY: z.coerce.number().int().positive().default(5),
+  MAX_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  CREDITCOIN_DEPLOYMENT_BLOCK: z.coerce.number().int().positive(),
 });
 
 export type WorkerConfig = z.infer<typeof schema>;

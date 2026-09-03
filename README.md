@@ -2,7 +2,7 @@
 
 **Collateral stays on Ethereum; Creditcoin acts only on a proof.**
 
-AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. An always-on worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
+AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
 > Current status: implementation, automated tests, green hosted CI, the public repository, hosted judge-safe web preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, and explorer evidence remain blocked on funded testnet credentials and are deliberately not claimed.
 
@@ -29,7 +29,7 @@ No valid proof means no line. The relayer cannot call `openLine`, borrow, repay,
 1. Connect a wallet and switch to Sepolia.
 2. Claim the one-time mock USDC faucet.
 3. Approve and lock `100 mUSDC` for 15 days.
-4. Sign a short-lived queue challenge; the lock transaction is queued automatically.
+4. Sign short-lived EIP-712 data bound to the exact lock transaction; it is queued automatically.
 5. Watch `queued → waiting_attestation → proving → preflight → submitting → executed`.
 6. Switch to Creditcoin testnet and borrow up to `50 mUSD` with the borrower wallet.
 7. Paste the pre-filled junk transaction and see a deterministic refusal with no state change.
@@ -109,14 +109,15 @@ Copy broadcast results into new non-example deployment JSON files, then follow [
 
 | Route                      | Purpose                                                       |
 | -------------------------- | ------------------------------------------------------------- |
-| `POST /api/challenges`     | Create a short-lived wallet-signing challenge                 |
+| `POST /api/challenges`     | Create a `{ wallet, txHash }` EIP-712 authorization           |
 | `POST /api/jobs`           | Queue one source transaction after signature and quota checks |
 | `GET /api/jobs/:id`        | Read one proof job                                            |
 | `GET /api/jobs?wallet=…`   | List a wallet's jobs                                          |
 | `GET /api/events?wallet=…` | Stream job updates over SSE                                   |
 | `GET /health`              | Railway health check                                          |
+| `GET /ready`               | PostgreSQL, chain-ID, and deployed-bytecode readiness check   |
 
-The queue is idempotent by transaction hash, challenges are one-time, and another wallet cannot claim an existing source transaction.
+The queue is idempotent by transaction hash. Typed challenges bind the wallet, transaction, Sepolia chain, source vault, API origin, nonce, and expiry. Quota enforcement and job claiming are transactional, and another wallet cannot claim an existing source transaction.
 
 The hosted preview keeps transaction buttons disabled until live contract addresses are configured. This is intentional: a polished preview is not presented as chain evidence.
 
@@ -138,6 +139,8 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 - [Demo runbook](docs/DEMO.md)
 - [Live evidence gate](docs/EVIDENCE.md)
 - [Submission draft](docs/SUBMISSION.md)
+- [Rubric and eligibility ledger](docs/RUBRIC.md)
+- [Market and ecosystem thesis](docs/MARKET.md)
 - [90-second video script](docs/VIDEO_SCRIPT.md)
 - [Six-slide judge deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck.pptx)
 - [Six-slide judge deck (PDF)](docs/deck/AttestLock-Hackathon-Deck.pdf)
@@ -145,6 +148,7 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 ## Hackathon timing
 
 The extended DoraHacks deadline is **September 13, 2026 at 23:59 ET**, equivalent to **September 14 at 10:59 Asia/Bangkok**. The internal freeze target is one day earlier.
+Winners are scheduled to be announced on **September 20, 2026**.
 
 ## License
 

@@ -30,7 +30,7 @@ export class JobProcessor {
 
   async runNext(now = new Date()): Promise<Job | null> {
     if (this.running) return null;
-    const job = await this.store.nextRunnable(now);
+    const job = await this.store.claimNextRunnable(now);
     if (!job) return null;
 
     this.running = true;

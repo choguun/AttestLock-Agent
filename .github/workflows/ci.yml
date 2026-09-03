@@ -54,3 +54,19 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  markdown-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --accept 200,429
+            --exclude-path '**/node_modules/**'
+            --exclude-path '**/contracts/lib/**'
+            --exclude-path '**/.tmp/**'
+            --exclude 'https://docs.attestcoin.org/.*'
+            --exclude 'https://dorahacks.io/.*'
+            './**/*.md'

@@ -1,0 +1,12 @@
+[build]
+builder = "RAILPACK"
+buildCommand = "pnpm --filter @attestlock/shared build && pnpm --filter @attestlock/web build"
+watchPatterns = ["apps/web/**", "packages/shared/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json"]
+
+[deploy]
+startCommand = "pnpm --filter @attestlock/web start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[deploy.multiRegionConfig]
+"asia-southeast1-eqsg3a" = { numReplicas = 1 }

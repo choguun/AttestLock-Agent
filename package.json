@@ -21,6 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
+    "smoke:production": "node scripts/smoke-production.mjs",
     "test": "pnpm --filter './packages/**' --filter './apps/**' test && pnpm contracts:test",
     "typecheck": "pnpm --filter @attestlock/shared typecheck && pnpm --filter @attestlock/shared build && pnpm --filter './apps/**' typecheck",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
