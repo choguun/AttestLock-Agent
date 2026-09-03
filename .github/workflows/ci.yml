@@ -67,4 +67,5 @@ jobs:
             --exclude 'https://docs.attestcoin.org/.*'
             --exclude 'https://dorahacks.io/.*'
             --exclude 'https://www.npmjs.com/.*'
+            --exclude 'https://medium.com/.*'
             './**/*.md'

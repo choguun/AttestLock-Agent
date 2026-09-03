@@ -29,7 +29,7 @@ async function assetPath(url = '/') {
   }
 }
 
-createServer(async (request, response) => {
+const server = createServer(async (request, response) => {
   const path = await assetPath(request.url);
   if (!path) {
     response.writeHead(400).end('Bad request');
@@ -47,4 +47,8 @@ createServer(async (request, response) => {
   } catch {
     response.writeHead(500).end('Unable to serve the application');
   }
-}).listen(port, '0.0.0.0');
+});
+
+server.listen(port, '0.0.0.0', () => {
+  console.log(`AttestLock web listening on ${port}`);
+});
