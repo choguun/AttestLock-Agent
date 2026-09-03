@@ -64,9 +64,7 @@ jobs:
           args: >-
             --no-progress
             --accept 200,429
-            --exclude-path '**/node_modules/**'
-            --exclude-path '**/contracts/lib/**'
-            --exclude-path '**/.tmp/**'
             --exclude 'https://docs.attestcoin.org/.*'
             --exclude 'https://dorahacks.io/.*'
+            --exclude 'https://www.npmjs.com/.*'
             './**/*.md'
