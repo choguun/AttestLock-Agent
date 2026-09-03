@@ -484,7 +484,7 @@ export default function App() {
 
       <footer>
         <p>AttestLock is a testnet prototype. No interest, liquidation, or mainnet funds.</p>
-        <p>Built for Creditcoin · DeFi track</p>
+        <p>Built for Creditcoin · DeFi track · Sepolia collateral</p>
       </footer>
     </main>
   );
