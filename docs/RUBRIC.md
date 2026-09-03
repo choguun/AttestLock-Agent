@@ -17,14 +17,16 @@ Eligibility remains **blocked** until both testnet deployment and the live proof
 
 ## Internal scoring model
 
-| Pillar                       |   Baseline |     Target | Evidence needed for target                                                   |
-| ---------------------------- | ---------: | ---------: | ---------------------------------------------------------------------------- |
-| Userbase Expansion           |       7/20 |      16/20 | Target user, acquisition wedge, activation funnel, and measurable pilot plan |
-| Technical Alignment          |      14/20 |      19/20 | Live ProofBuilder payload and successful BlockProver transaction             |
-| Product Vision & Innovation  |      15/20 |      18/20 | Clear differentiation plus release/default roadmap                           |
-| Execution Capability         |      10/20 |      19/20 | Working hosted flow, worker health, negative paths, video, and clean-room CI |
-| Market & Technical Relevance |       7/20 |      16/20 | Competitive framing, market wedge, and Creditcoin ecosystem loop             |
-| **Total**                    | **53/100** | **88/100** |                                                                              |
+| Pillar                       |   Baseline | Current verified |     Target | Remaining evidence gap                                   |
+| ---------------------------- | ---------: | ---------------: | ---------: | -------------------------------------------------------- |
+| Userbase Expansion           |       7/20 |            13/20 |      16/20 | Three builder interviews or pilot commitments            |
+| Technical Alignment          |      14/20 |            17/20 |      19/20 | Live ProofBuilder payload and BlockProver transaction    |
+| Product Vision & Innovation  |      15/20 |            18/20 |      18/20 | Target met in product, differentiation, and roadmap docs |
+| Execution Capability         |      10/20 |            15/20 |      19/20 | Deployed worker, complete hosted flow, and public video  |
+| Market & Technical Relevance |       7/20 |            14/20 |      16/20 | External validation of the proposed adoption wedge       |
+| **Total**                    | **53/100** |       **77/100** | **88/100** |                                                          |
+
+The current score credits only repository artifacts, passing CI, and the healthy fail-closed hosted preview. It does not award points for planned deployments, mock-only proof evidence, or an unrecorded video.
 
 ## Judge evidence map
 
