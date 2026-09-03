@@ -7,7 +7,7 @@
     "build": "tsc -b && vite build",
     "dev": "vite",
     "preview": "vite preview",
-    "start": "serve -s dist -l $PORT",
+    "start": "node server.mjs",
     "test": "vitest run",
     "typecheck": "tsc -b --noEmit"
   },
@@ -15,8 +15,7 @@
     "@attestlock/shared": "workspace:*",
     "ethers": "^6.17.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "serve": "^14.2.4"
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",
