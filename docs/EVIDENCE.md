@@ -43,30 +43,32 @@ This snapshot is repository evidence, not live-chain proof.
 
 ## Evidence table
 
-| Field                   | Value                                                                 |
-| ----------------------- | --------------------------------------------------------------------- |
-| Public repository       | https://github.com/choguun/AttestLock-Agent                           |
-| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                            |
-| Completion branch/PR    | `codex/hackathon-completion` / Pending                                |
-| Sepolia deployment      | Pending                                                               |
-| Creditcoin deployment   | Pending                                                               |
-| Sepolia lock tx         | Pending                                                               |
-| Attested block/time     | Pending                                                               |
-| Sanitized proof fixture | Pending                                                               |
-| Creditcoin proof tx     | Pending                                                               |
-| Creditcoin borrow tx    | Pending                                                               |
-| Junk refusal job        | Pending                                                               |
-| Hosted web URL          | https://attestlock-web-production.up.railway.app                      |
-| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                             |
-| Worker health URL       | Pending — worker has no deployment while chain credentials are absent |
-| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023  |
-| Completion CI run       | Pending PR                                                            |
+| Field                   | Value                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| Public repository       | https://github.com/choguun/AttestLock-Agent                                       |
+| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                        |
+| Release candidate       | `c19283e824a5bc9848fdded9ca89d578a8a38430`                                        |
+| Completion branch/PR    | `codex/hackathon-completion` / https://github.com/choguun/AttestLock-Agent/pull/1 |
+| Sepolia deployment      | Pending                                                                           |
+| Creditcoin deployment   | Pending                                                                           |
+| Sepolia lock tx         | Pending                                                                           |
+| Attested block/time     | Pending                                                                           |
+| Sanitized proof fixture | Pending                                                                           |
+| Creditcoin proof tx     | Pending                                                                           |
+| Creditcoin borrow tx    | Pending                                                                           |
+| Junk refusal job        | Pending                                                                           |
+| Hosted web URL          | https://attestlock-web-production.up.railway.app                                  |
+| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                    |
+| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                         |
+| Worker health URL       | Pending — worker has no deployment while chain credentials are absent             |
+| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023              |
+| Completion CI run       | https://github.com/choguun/AttestLock-Agent/actions/runs/33781542310              |
 
 ## Railway observation
 
-Observed at `2026-09-03T16:23:40Z`:
+Observed again after deployment at `2026-09-03T16:57:09Z`:
 
-- `attestlock-web` is running in Singapore at https://attestlock-web-production.up.railway.app.
+- `attestlock-web` deployment `0f514b7b-2ada-47f6-9868-bf05ae323756` passed its `/` health check in Singapore; the page and public logo both returned HTTP 200;
 - private PostgreSQL is running with a persistent volume;
 - `attestlock-worker` has no active deployment and no public domain;
 - the worker is intentionally not connected/deployed until Sepolia RPC, Creditcoin RPC, proof-builder URL, funded relayer key, source addresses, destination address, and deployment block are available.
