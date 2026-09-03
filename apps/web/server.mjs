@@ -40,6 +40,7 @@ createServer(async (request, response) => {
     response.writeHead(200, {
       'Content-Type': mimeTypes[extname(path)] ?? 'application/octet-stream',
       'Cache-Control': extname(path) === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+      'Referrer-Policy': 'no-referrer',
       'X-Content-Type-Options': 'nosniff',
     });
     response.end(body);
