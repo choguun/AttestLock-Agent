@@ -4,7 +4,6 @@ buildCommand = "pnpm --filter @attestlock/shared build && pnpm --filter @attestl
 watchPatterns = ["apps/web/**", "packages/shared/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.base.json"]
 
 [deploy]
-startCommand = "node apps/web/server.mjs"
 healthcheckPath = "/"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
