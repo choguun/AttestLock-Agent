@@ -98,12 +98,23 @@ contract AttestLockASCTest is Test {
         _mockVerifier(encodedTx, true, 0);
         vm.expectRevert(AttestLockASC.SourceTransactionFailed.selector);
         _execute(encodedTx, 1);
+        _assertRejectedState(lockId, borrower);
+    }
+
+    function testRejectsUnsupportedTransactionType() external {
+        bytes[] memory chunks = new bytes[](0);
+        bytes memory encodedTx = abi.encode(type(uint8).max, chunks);
+        _mockVerifier(encodedTx, true, 0);
+        vm.expectRevert(AttestLockASC.UnsupportedTransactionType.selector);
+        _execute(encodedTx, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsWrongChainBeforeCallingVerifier() external {
         bytes memory encodedTx = _validEncodedTx();
         vm.expectRevert(AttestLockASC.UnsupportedChain.selector);
         _execute(encodedTx, 3);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsWrongSourceTransactionAndBorrower() external {
@@ -150,6 +161,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(zeroBorrower, true, 0);
         vm.expectRevert(AttestLockASC.InvalidLockIdentity.selector);
         _execute(zeroBorrower, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsWrongVaultAndWrongToken() external {
@@ -167,6 +179,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(wrongToken, true, 0);
         vm.expectRevert(AttestLockASC.UnsupportedToken.selector);
         _execute(wrongToken, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsSmallCollateralAndShortRemainingTerm() external {
@@ -183,6 +196,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(shortTerm, true, 0);
         vm.expectRevert(AttestLockASC.InsufficientRemainingLock.selector);
         _execute(shortTerm, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsQueryReplayAndLockReplay() external {
@@ -197,6 +211,15 @@ contract AttestLockASCTest is Test {
         _mockVerifier(encodedTx, true, 1);
         vm.expectRevert(AttestLockASC.LockAlreadyUsed.selector);
         _execute(encodedTx, 1);
+
+        (address recordedBorrower, uint256 limit, uint256 debt,,,, bytes32 recordedQueryId) =
+            pool.lines(lockId);
+        assertEq(recordedBorrower, borrower);
+        assertEq(limit, 100e6);
+        assertEq(debt, 0);
+        assertTrue(asc.processedQueries(recordedQueryId));
+        assertTrue(asc.usedLocks(lockId));
+        _assertProfile(1, 100e6, 0, 0, 0);
     }
 
     function testRejectsMalformedAndAmbiguousLockLogs() external {
@@ -223,6 +246,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(duplicate, true, 0);
         vm.expectRevert(AttestLockASC.AmbiguousLockEvents.selector);
         _execute(duplicate, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testPoolBorrowRepayAndMaturityRules() external {
@@ -630,6 +654,7 @@ contract AttestLockASCTest is Test {
         (address recordedBorrower,,,,,,) = pool.lines(id);
         assertEq(recordedBorrower, address(0));
         assertFalse(asc.usedLocks(id));
+        assertFalse(asc.processedQueries(keccak256(abi.encodePacked(uint256(1), blockHeight, uint256(0)))));
         (uint256 lines_, uint256 credit, uint256 borrowed, uint256 repaid, uint256 outstanding) =
             pool.borrowerProfiles(profileOwner);
         assertEq(lines_, 0);
