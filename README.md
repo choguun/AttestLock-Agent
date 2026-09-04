@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: the proof-gated contracts, reusable borrower profile, ChainInfo-aware worker, aggregate stats, database-backed tests, browser E2E, production smoke workflow, public repository, hosted judge-safe preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, native proof, explorer evidence, and videos remain pending and are deliberately not claimed.
+> Current status: the hardened proof-gated contracts, reusable borrower profile, schema-v2 ChainInfo readiness, aggregate on-chain stats, database-backed API tests, refresh-safe browser flow, production smoke workflow, public repository, hosted judge-safe preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, native proof, explorer evidence, and videos remain pending and are deliberately not claimed.
 
 **Hosted preview:** https://attestlock-web-production.up.railway.app
 
@@ -17,7 +17,7 @@ Sepolia LockVault
   └─ successful CollateralLocked event
        └─ Attestcoin Merkle + continuity proof
             └─ Creditcoin BlockProver 0x0FD2
-                 └─ exact receipt, vault, event, token, amount, and term checks
+                 └─ exact sender, destination, receipt, event, token, amount, and term checks
                       └─ CreditPool.openLine (only ASC)
                            └─ borrower signs borrow()
 ```
@@ -61,7 +61,7 @@ The proof payload and decoder follow the [current official Attestcoin examples](
 
 ## Local verification
 
-Prerequisites: Node 22+, pnpm 11.24+, Foundry, and optionally PostgreSQL 17 for the persistence integration test.
+Prerequisites: Node 22+, pnpm 11.24+, Foundry, and optionally PostgreSQL 17 for the six persistence and concurrency integration tests.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -71,7 +71,7 @@ pnpm contracts:coverage
 pnpm test:e2e
 ```
 
-Without `DATABASE_TEST_URL`, the PostgreSQL integration test is skipped; all other tests run without secrets. To exercise it:
+Without `DATABASE_TEST_URL`, the PostgreSQL integration suite is skipped; all other tests run without secrets. To exercise it:
 
 ```bash
 export DATABASE_TEST_URL=postgres://attestlock:attestlock@127.0.0.1:5432/attestlock_test
@@ -120,33 +120,36 @@ pnpm deployments:manifest
 pnpm evidence:live
 ```
 
+Set `REQUIRE_VERIFIED=true` when generating final manifests. Sepolia verification lookup additionally needs a local `ETHERSCAN_API_KEY`; it is queried but never written to the manifest.
+
 Deployment is not “done” until the proof transaction and borrower-signed borrow are visible on both explorers.
 
 ## API
 
-| Route                      | Purpose                                                        |
-| -------------------------- | -------------------------------------------------------------- |
-| `POST /api/challenges`     | Create a `{ wallet, txHash }` EIP-712 authorization            |
-| `POST /api/jobs`           | Queue one source transaction after signature and quota checks  |
-| `GET /api/jobs/:id`        | Read one proof job                                             |
-| `GET /api/jobs?wallet=…`   | List a wallet's jobs                                           |
-| `GET /api/events?wallet=…` | Stream job updates over SSE                                    |
-| `GET /api/stats`           | Aggregate jobs, authorized-wallet count, outcomes, attestation |
-| `GET /health`              | Railway health check                                           |
-| `GET /ready`               | Versioned DB/RPC/bytecode/ChainInfo/prover/relayer readiness   |
+| Route                      | Purpose                                                          |
+| -------------------------- | ---------------------------------------------------------------- |
+| `POST /api/challenges`     | Create a `{ wallet, txHash }` EIP-712 authorization              |
+| `POST /api/jobs`           | Queue one source transaction after signature and quota checks    |
+| `GET /api/jobs/:id`        | Read one proof job                                               |
+| `GET /api/jobs?wallet=…`   | List a wallet's jobs                                             |
+| `GET /api/events?wallet=…` | Stream job updates over SSE                                      |
+| `GET /api/stats`           | Aggregate jobs, on-chain lines/draws, atomic totals, attestation |
+| `GET /health`              | Railway health check                                             |
+| `GET /ready`               | Schema-v2 DB/RPC/bindings/ChainInfo/prover/relayer readiness     |
 
 The queue is idempotent by transaction hash. Typed challenges bind the wallet, transaction, Sepolia chain, source vault, API origin, nonce, and expiry. Quota enforcement and job claiming are transactional, and another wallet cannot claim an existing source transaction.
 
-The hosted preview keeps transaction buttons disabled until live contract addresses are configured. This is intentional: a polished preview is not presented as chain evidence.
+The hosted preview keeps transaction buttons disabled until the live API, all five contract addresses, and a known non-vault refusal transaction are configured. This is intentional: a polished preview is not presented as chain evidence.
 
 ## Security boundaries
 
-- The worker validates the Sepolia receipt before paying proof costs.
-- The ASC independently verifies the proof and every material event field.
+- The worker validates the Sepolia sender, destination, receipt, and lock before paying proof costs.
+- The ASC independently verifies the proof-contained transaction sender/destination and every material receipt/event field.
 - Query IDs and proof-derived lock IDs are both one-time.
 - `CreditPool.openLine` is callable only by the immutable ASC configured once.
 - The borrower must sign `borrow`; repayment remains available after maturity.
 - A Creditcoin-native borrower profile counts only proof-opened lines and real draws/repayments.
+- Wallet transaction hashes are journaled before confirmation so refresh recovery does not rebroadcast them.
 - Transient infrastructure failures retry with bounded backoff; policy failures are terminal refusals.
 
 See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshipped controls.

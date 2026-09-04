@@ -47,7 +47,38 @@ const transactions = {};
 const explorerUrls = {};
 const codeHashes = {};
 const constructorArguments = {};
+const contractRecords = {};
 const blocks = [];
+async function verificationStatus(address) {
+  let endpoint;
+  if (networkKey === 'creditcoin-testnet') {
+    endpoint = new URL('/api', network.explorer);
+    endpoint.search = new URLSearchParams({
+      module: 'contract',
+      action: 'getsourcecode',
+      address,
+    }).toString();
+  } else if (process.env.ETHERSCAN_API_KEY) {
+    endpoint = new URL('https://api.etherscan.io/v2/api');
+    endpoint.search = new URLSearchParams({
+      chainid: String(network.chainId),
+      module: 'contract',
+      action: 'getsourcecode',
+      address,
+      apikey: process.env.ETHERSCAN_API_KEY,
+    }).toString();
+  } else {
+    return 'not-checked';
+  }
+  try {
+    const response = await fetch(endpoint, { signal: AbortSignal.timeout(15_000) });
+    const body = await response.json();
+    return response.ok && body.status === '1' && body.result?.[0]?.SourceCode ? 'verified' : 'unverified';
+  } catch {
+    return 'check-failed';
+  }
+}
+
 for (const name of network.contracts) {
   const creation = creates.find((entry) => entry.contractName === name);
   if (!creation) throw new Error(`Broadcast is missing ${name}.`);
@@ -64,6 +95,23 @@ for (const name of network.contracts) {
   explorerUrls[`${name}Transaction`] = `${network.explorer}/tx/${hash}`;
   codeHashes[name] = keccak256(code);
   constructorArguments[name] = creation.arguments ?? [];
+  const deployedBlock = await provider.getBlock(block);
+  if (!deployedBlock) throw new Error(`${name} deployment block ${block} is unavailable.`);
+  const status = await verificationStatus(address);
+  if (process.env.REQUIRE_VERIFIED === 'true' && status !== 'verified') {
+    throw new Error(`${name} is not verified on ${network.label}; observed status: ${status}.`);
+  }
+  contractRecords[name] = {
+    address,
+    constructorArguments: creation.arguments ?? [],
+    deploymentTransaction: hash,
+    deploymentBlock: block,
+    deployedAt: new Date(deployedBlock.timestamp * 1000).toISOString(),
+    runtimeCodeHash: codeHashes[name],
+    verificationStatus: status,
+    explorerAddressUrl: explorerUrls[name],
+    explorerTransactionUrl: explorerUrls[`${name}Transaction`],
+  };
   blocks.push(block);
 }
 
@@ -82,6 +130,7 @@ const manifest = {
   deploymentBlock,
   deployer: getAddress(creates[0].transaction.from),
   contracts,
+  contractRecords,
   constructorArguments,
   codeHashes,
   transactions,

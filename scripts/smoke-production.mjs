@@ -1,5 +1,5 @@
 import { chainInfo } from '@gluwa/usc-sdk';
-import { Contract, getAddress, JsonRpcProvider, ZeroAddress } from 'ethers';
+import { Contract, getAddress, isHexString, JsonRpcProvider, ZeroAddress } from 'ethers';
 
 const required = [
   'WEB_URL',
@@ -12,9 +12,16 @@ const required = [
   'CREDIT_POOL_ADDRESS',
   'ATTESTLOCK_ASC_ADDRESS',
   'RELAYER_ADDRESS',
+  'INVALID_SOURCE_TX_HASH',
 ];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing ${key}`);
+}
+if (
+  !isHexString(process.env.INVALID_SOURCE_TX_HASH, 32) ||
+  BigInt(process.env.INVALID_SOURCE_TX_HASH) === 0n
+) {
+  throw new Error('INVALID_SOURCE_TX_HASH must be a nonzero 32-byte transaction hash');
 }
 
 const webUrl = new URL(process.env.WEB_URL);
@@ -42,20 +49,45 @@ if (cors.headers.get('access-control-allow-origin') !== webUrl.origin) {
 const html = await web.text();
 const readiness = await ready.json();
 if (
+  readiness.schemaVersion !== 2 ||
   readiness.status !== 'ready' ||
   !readiness.version ||
   !readiness.checks ||
   Object.values(readiness.checks).some((value) => value !== true) ||
   !Number.isSafeInteger(readiness.latestAttestedHeight) ||
-  readiness.latestAttestedHeight <= 0
+  readiness.latestAttestedHeight <= 0 ||
+  !readiness.attestationAdvancedAt ||
+  !Number.isSafeInteger(readiness.proofBuilderAttestedHeight) ||
+  readiness.proofBuilderAttestedHeight <= 0
 ) {
   throw new Error('Worker readiness is incomplete or lacks an active attestation height');
 }
 const publicStats = await stats.json();
-for (const key of ['totalJobs', 'uniqueWallets', 'executedJobs', 'refusedJobs', 'failedJobs']) {
+for (const key of [
+  'totalJobs',
+  'uniqueWallets',
+  'executedJobs',
+  'refusedJobs',
+  'failedJobs',
+  'linesOpened',
+  'borrowersWhoDrew',
+]) {
   if (!Number.isSafeInteger(publicStats[key]) || publicStats[key] < 0) {
     throw new Error(`Public aggregate statistic is invalid: ${key}`);
   }
+}
+for (const key of [
+  'totalCreditOpenedAtomic',
+  'totalBorrowedAtomic',
+  'totalRepaidAtomic',
+  'outstandingDebtAtomic',
+]) {
+  if (typeof publicStats[key] !== 'string' || !/^\d+$/.test(publicStats[key])) {
+    throw new Error(`Public aggregate atomic amount is invalid: ${key}`);
+  }
+}
+if (JSON.stringify(publicStats).includes('0x')) {
+  throw new Error('Public aggregate statistics must not expose wallet or transaction identifiers');
 }
 const assetUrls = [...html.matchAll(/<(?:script|link)[^>]+(?:src|href)="([^"]+)"/g)]
   .map((match) => match[1])
@@ -69,6 +101,8 @@ for (const value of [
   process.env.SOURCE_VAULT_ADDRESS,
   process.env.MOCK_USD_ADDRESS,
   process.env.CREDIT_POOL_ADDRESS,
+  process.env.ATTESTLOCK_ASC_ADDRESS,
+  process.env.INVALID_SOURCE_TX_HASH,
 ]) {
   if (!bundle.toLowerCase().includes(value.toLowerCase())) {
     throw new Error(`Production web bundle is missing expected configuration: ${value}`);
@@ -80,6 +114,14 @@ const creditcoin = new JsonRpcProvider(process.env.CREDITCOIN_RPC_URL);
 const [sourceNetwork, creditcoinNetwork] = await Promise.all([source.getNetwork(), creditcoin.getNetwork()]);
 if (sourceNetwork.chainId !== 11_155_111n) throw new Error('Source RPC is not Sepolia');
 if (creditcoinNetwork.chainId !== 102_031n) throw new Error('Destination RPC is not Creditcoin testnet');
+const invalidSourceTransaction = await source.getTransaction(process.env.INVALID_SOURCE_TX_HASH);
+if (!invalidSourceTransaction) throw new Error('Configured refusal transaction does not exist on Sepolia');
+if (
+  invalidSourceTransaction.to &&
+  getAddress(invalidSourceTransaction.to) === getAddress(process.env.SOURCE_VAULT_ADDRESS)
+) {
+  throw new Error('Configured refusal transaction must not target LockVault');
+}
 
 for (const key of ['SOURCE_TOKEN_ADDRESS', 'SOURCE_VAULT_ADDRESS']) {
   const address = getAddress(process.env[key]);

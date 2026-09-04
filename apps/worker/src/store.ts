@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Challenge, Job, JobEvidence, JobStatus, PublicStats } from '@attestlock/shared';
+import type { Challenge, Job, JobEvidence, JobStats, JobStatus } from '@attestlock/shared';
 import { buildQueueAuthorization, CHALLENGE_TTL_SECONDS, explainStatus } from '@attestlock/shared';
 import postgres, { type Sql } from 'postgres';
 import { migrations } from './migrations.js';
@@ -30,7 +30,7 @@ export interface JobStore {
   createJob(txHash: string, borrower: string): Promise<Job>;
   getJob(id: string): Promise<Job | null>;
   listJobs(borrower?: string): Promise<Job[]>;
-  getPublicStats(): Promise<Omit<PublicStats, 'generatedAt' | 'latestAttestedHeight'>>;
+  getPublicStats(): Promise<JobStats>;
   claimNextRunnable(now?: Date): Promise<Job | null>;
   transition(id: string, input: TransitionInput): Promise<Job>;
   close(): Promise<void>;
@@ -82,6 +82,10 @@ function toJob(row: JobRow): Job {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
+}
+
+function normalizeTxHash(txHash: string): string {
+  return txHash.toLowerCase();
 }
 
 export class PostgresJobStore implements JobStore {
@@ -145,6 +149,7 @@ export class PostgresJobStore implements JobStore {
     apiOrigin: string,
     now = new Date()
   ): Promise<Challenge> {
+    txHash = normalizeTxHash(txHash);
     const nonce = randomUUID();
     const expiresAt = new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000);
     const typedData = buildQueueAuthorization(
@@ -187,6 +192,7 @@ export class PostgresJobStore implements JobStore {
     maxJobs: number,
     since: Date
   ): Promise<Job> {
+    txHash = normalizeTxHash(txHash);
     return this.sql.begin(async (sql) => {
       await sql`select pg_advisory_xact_lock(hashtext(${borrower}))`;
       const rows = await sql<Array<ChallengeRow>>`
@@ -238,6 +244,7 @@ export class PostgresJobStore implements JobStore {
   }
 
   async createJob(txHash: string, borrower: string): Promise<Job> {
+    txHash = normalizeTxHash(txHash);
     const id = randomUUID();
     const rows = await this.sql<Array<JobRow>>`
       insert into jobs (id, tx_hash, borrower, status, explanation)
@@ -264,7 +271,7 @@ export class PostgresJobStore implements JobStore {
     return rows.map(toJob);
   }
 
-  async getPublicStats(): Promise<Omit<PublicStats, 'generatedAt' | 'latestAttestedHeight'>> {
+  async getPublicStats(): Promise<JobStats> {
     const rows = await this.sql<
       Array<{
         total_jobs: number;
@@ -382,6 +389,7 @@ export class PostgresJobStore implements JobStore {
 export class MemoryJobStore implements JobStore {
   readonly jobs = new Map<string, Job>();
   readonly challenges = new Map<string, Challenge & { used: boolean }>();
+  private authorizationTail: Promise<void> = Promise.resolve();
 
   async init(): Promise<void> {}
   async ping(): Promise<boolean> {
@@ -411,6 +419,7 @@ export class MemoryJobStore implements JobStore {
     apiOrigin: string,
     now = new Date()
   ): Promise<Challenge> {
+    txHash = normalizeTxHash(txHash);
     const nonce = randomUUID();
     const expiresAt = new Date(now.getTime() + CHALLENGE_TTL_SECONDS * 1000).toISOString();
     const challenge = {
@@ -435,27 +444,38 @@ export class MemoryJobStore implements JobStore {
     maxJobs: number,
     since: Date
   ): Promise<Job> {
-    const challenge = this.challenges.get(nonce);
-    if (
-      !challenge ||
-      challenge.used ||
-      new Date(challenge.expiresAt).getTime() <= Date.now() ||
-      challenge.wallet !== borrower ||
-      challenge.txHash.toLowerCase() !== txHash.toLowerCase()
-    ) {
-      throw new ChallengeAuthorizationError('Challenge is missing, expired, consumed, or mismatched.');
-    }
-    const existing = [...this.jobs.values()].find((job) => job.txHash === txHash);
-    if (existing) {
-      if (existing.borrower !== borrower) throw new TransactionOwnerMismatchError();
+    txHash = normalizeTxHash(txHash);
+    const previous = this.authorizationTail;
+    let release!: () => void;
+    this.authorizationTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      const challenge = this.challenges.get(nonce);
+      if (
+        !challenge ||
+        challenge.used ||
+        new Date(challenge.expiresAt).getTime() <= Date.now() ||
+        challenge.wallet !== borrower ||
+        challenge.txHash !== txHash
+      ) {
+        throw new ChallengeAuthorizationError('Challenge is missing, expired, consumed, or mismatched.');
+      }
+      const existing = [...this.jobs.values()].find((job) => job.txHash === txHash);
+      if (existing) {
+        if (existing.borrower !== borrower) throw new TransactionOwnerMismatchError();
+        challenge.used = true;
+        return existing;
+      }
+      if ((await this.countRecentJobs(borrower, since)) >= maxJobs) {
+        throw new JobQuotaExceededError('Daily proof-job quota reached.');
+      }
       challenge.used = true;
-      return existing;
+      return this.createJob(txHash, borrower);
+    } finally {
+      release();
     }
-    if ((await this.countRecentJobs(borrower, since)) >= maxJobs) {
-      throw new JobQuotaExceededError('Daily proof-job quota reached.');
-    }
-    challenge.used = true;
-    return this.createJob(txHash, borrower);
   }
 
   async countRecentJobs(wallet: string, since: Date): Promise<number> {
@@ -475,6 +495,7 @@ export class MemoryJobStore implements JobStore {
   }
 
   async createJob(txHash: string, borrower: string): Promise<Job> {
+    txHash = normalizeTxHash(txHash);
     const existing = [...this.jobs.values()].find((job) => job.txHash === txHash);
     if (existing) {
       if (existing.borrower !== borrower) throw new TransactionOwnerMismatchError();
@@ -508,7 +529,7 @@ export class MemoryJobStore implements JobStore {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  async getPublicStats(): Promise<Omit<PublicStats, 'generatedAt' | 'latestAttestedHeight'>> {
+  async getPublicStats(): Promise<JobStats> {
     const jobs = [...this.jobs.values()];
     return {
       totalJobs: jobs.length,

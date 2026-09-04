@@ -43,10 +43,13 @@ contract AttestLockASC {
     error QueryAlreadyProcessed();
     error ProofVerificationFailed();
     error UnsupportedTransactionType();
+    error WrongSourceTransaction();
     error SourceTransactionFailed();
     error MissingLockEvent();
     error AmbiguousLockEvents();
     error MalformedLockEvent();
+    error InvalidLockIdentity();
+    error BorrowerMismatch();
     error UnsupportedToken();
     error CollateralBelowMinimum();
     error InsufficientRemainingLock();
@@ -74,14 +77,15 @@ contract AttestLockASC {
         bytes32 queryId = _computeQueryId(chainKey, blockHeight, merkleRoot, siblings);
         if (processedQueries[queryId]) revert QueryAlreadyProcessed();
 
-        INativeQueryVerifier.MerkleProof memory merkleProof =
-            INativeQueryVerifier.MerkleProof({ root: merkleRoot, siblings: siblings });
-        INativeQueryVerifier.ContinuityProof memory continuityProof = INativeQueryVerifier.ContinuityProof({
-            lowerEndpointDigest: lowerEndpointDigest, roots: continuityRoots
-        });
-        bool verified =
-            verifier.verifyAndEmit(chainKey, blockHeight, encodedTransaction, merkleProof, continuityProof);
-        if (!verified) revert ProofVerificationFailed();
+        if (!_verifyProof(
+                chainKey,
+                blockHeight,
+                encodedTransaction,
+                merkleRoot,
+                siblings,
+                lowerEndpointDigest,
+                continuityRoots
+            )) revert ProofVerificationFailed();
 
         (bytes32 lockId, address borrower, uint256 amount, uint64 unlockAt) =
             _decodeAndValidateLock(encodedTransaction);
@@ -97,6 +101,23 @@ contract AttestLockASC {
 
         emit LockVerifiedAndLineOpened(queryId, lockId, borrower, amount, creditLimit, maturity, unlockAt);
         return true;
+    }
+
+    function _verifyProof(
+        uint64 chainKey,
+        uint64 blockHeight,
+        bytes calldata encodedTransaction,
+        bytes32 merkleRoot,
+        INativeQueryVerifier.MerkleProofEntry[] calldata siblings,
+        bytes32 lowerEndpointDigest,
+        bytes32[] calldata continuityRoots
+    ) internal returns (bool) {
+        INativeQueryVerifier.MerkleProof memory merkleProof =
+            INativeQueryVerifier.MerkleProof({ root: merkleRoot, siblings: siblings });
+        INativeQueryVerifier.ContinuityProof memory continuityProof = INativeQueryVerifier.ContinuityProof({
+            lowerEndpointDigest: lowerEndpointDigest, roots: continuityRoots
+        });
+        return verifier.verifyAndEmit(chainKey, blockHeight, encodedTransaction, merkleProof, continuityProof);
     }
 
     function _computeQueryId(
@@ -118,6 +139,9 @@ contract AttestLockASC {
     {
         uint8 txType = EvmV1Decoder.getTransactionType(encodedTransaction);
         if (!EvmV1Decoder.isValidTransactionType(txType)) revert UnsupportedTransactionType();
+
+        EvmV1Decoder.CommonTxFields memory common = EvmV1Decoder.decodeCommonTxFields(encodedTransaction);
+        if (common.toIsNull || common.to != sourceVault) revert WrongSourceTransaction();
 
         EvmV1Decoder.ReceiptFields memory receipt = EvmV1Decoder.decodeReceiptFields(encodedTransaction);
         if (receipt.receiptStatus != 1) revert SourceTransactionFailed();
@@ -146,7 +170,8 @@ contract AttestLockASC {
 
         if (matches == 0) revert MissingLockEvent();
         if (matches > 1) revert AmbiguousLockEvents();
+        if (lockId == bytes32(0) || borrower == address(0)) revert InvalidLockIdentity();
+        if (common.from != borrower) revert BorrowerMismatch();
         if (amount < MIN_COLLATERAL) revert CollateralBelowMinimum();
     }
 }
-

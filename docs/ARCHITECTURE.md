@@ -51,9 +51,10 @@ Policy failures terminate in `refused`. Exhausted infrastructure retries termina
 - Typed challenges expire after a short window, authorize one transaction, and are consumed once.
 - Transactional per-wallet quotas and IP rate limits bound relayer spend.
 - A submitted Creditcoin transaction hash is persisted before confirmation and reconciled on restart.
+- Browser wallet transactions are journaled before confirmation by wallet, chain, and action; REST plus receipts recover state after refresh without rebroadcasting.
 - SSE gives the browser immediate updates; REST remains the recovery path.
-- `/ready` fails unless database, both RPCs, all deployed bytecode, Sepolia ChainInfo registration, a fresh/advancing attestation, ProofBuilder, and relayer funding pass.
-- `/api/stats` exposes counts and latest attested height only; it never returns wallet lists.
+- `/ready` schema version 2 fails unless database, both RPCs, all deployed bytecode and immutable/one-time bindings, Sepolia ChainInfo registration, an observed height advance within the freshness window, ProofBuilder, and relayer funding pass. Its first height observation is intentionally not enough.
+- `/api/stats` exposes aggregate job outcomes, on-chain line/draw counts, atomic credit totals, and latest attested height; it never returns wallet lists.
 - A scheduled production smoke independently checks hosted endpoints, CORS, chain IDs, bytecode, native ChainInfo, relayer funding, and contract bindings.
 
 ## Creditcoin borrower profile

@@ -37,17 +37,18 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 
 ## Required links
 
-| Field             | URL                                                                                           |
-| ----------------- | --------------------------------------------------------------------------------------------- |
-| Public repository | https://github.com/choguun/AttestLock-Agent                                                   |
-| Hosted demo       | https://attestlock-web-production.up.railway.app                                              |
-| Five-minute setup | [ONBOARDING.md](ONBOARDING.md)                                                                |
-| Competitor matrix | [COMPETITIVE.md](COMPETITIVE.md)                                                              |
-| Demo video        | Pending live evidence recording                                                               |
-| Slide deck PDF    | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck.pdf |
-| Sepolia lock      | Pending funded deployment                                                                     |
-| Creditcoin proof  | Pending funded deployment                                                                     |
-| Creditcoin borrow | Pending funded deployment                                                                     |
+| Field                    | URL                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| Public repository        | https://github.com/choguun/AttestLock-Agent                                                   |
+| Hosted demo              | https://attestlock-web-production.up.railway.app                                              |
+| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                |
+| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                              |
+| Demo video               | Pending live evidence recording                                                               |
+| Technical appendix video | Pending uncut live evidence recording                                                         |
+| Slide deck PDF           | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck.pdf |
+| Sepolia lock             | Pending funded deployment                                                                     |
+| Creditcoin proof         | Pending funded deployment                                                                     |
+| Creditcoin borrow        | Pending funded deployment                                                                     |
 
 ## Team information
 

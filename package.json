@@ -27,8 +27,9 @@
     "smoke:production": "node scripts/smoke-production.mjs",
     "test": "pnpm --filter './packages/**' --filter './apps/**' test && pnpm contracts:test",
     "test:e2e": "playwright test",
+    "test:web-config": "bash scripts/test-web-production-config.sh",
     "typecheck": "pnpm --filter @attestlock/shared typecheck && pnpm --filter @attestlock/shared build && pnpm --filter './apps/**' typecheck",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:web-config && pnpm build"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",

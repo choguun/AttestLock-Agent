@@ -19,6 +19,8 @@ AttestLock does not claim that proof alone solves liquidation. The product value
 
 Creditcoin's [Credal case study](https://creditcoin.org/Credal) presents authenticated loan transactions and accumulated on-chain credit history as infrastructure for future financial access. AttestLock contributes a deliberately smaller primitive: a profile of proof-opened lines, real draws, repayments, and outstanding debt on Creditcoin. It is evidence for later risk modules, not a score or a promise of repayment.
 
+The protocol fit is direct rather than inferred from a generic interoperability narrative. Creditcoin's [official architecture overview](https://docs.creditcoin.org/usc/overview/usc-architecture-overview) describes native `0x0FD2` verification of external transactions followed by application-specific Creditcoin logic, and uses cross-chain lending as its example. Its [builder infrastructure guide](https://docs.creditcoin.org/usc/dapp-builder-infrastructure/infrastructure-overview) separates the source contract, off-chain worker, universal smart contract, and destination business logic—the same trust-boundary split used here.
+
 ## Adoption loop
 
 1. Use the [five-minute onboarding path](ONBOARDING.md) and reusable collateral-event schema.

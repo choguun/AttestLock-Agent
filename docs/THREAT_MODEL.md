@@ -9,24 +9,25 @@
 
 ## Controls
 
-| Threat                      | Control                                                  | Residual risk                                                    |
-| --------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| Fake transaction hash       | Receipt lookup plus on-chain proof verification          | Source RPC can delay classification                              |
-| Failed source call          | Receipt status checked off-chain and on-chain            | None within supported receipt encoding                           |
-| Look-alike event            | Exact signature, emitter, topics, token, and data shape  | Deployed source addresses must be configured correctly           |
-| Tampered proof              | BlockProver precompile verification                      | Attestcoin protocol/testnet assumptions                          |
-| Proof replay                | One-time query ID                                        | None after final destination state                               |
-| Same lock in another proof  | One-time proof-derived lock ID                           | None after final destination state                               |
-| Signature reuse or swapping | EIP-712 binds wallet, tx, chain, vault, API, and expiry  | Compromised borrower wallet                                      |
-| Relayer abuse               | One-time typed challenge, transactional quota, IP limit  | Distributed abuse across wallets and IPs                         |
-| Worker crash                | Persisted submission hash plus chain reconciliation      | RPC availability can delay recovery                              |
-| Over-borrow                 | Pool checks `debt + amount <= limit`                     | Mock asset has no market value                                   |
-| Unauthorized borrowing      | `msg.sender == borrower`                                 | Compromised borrower wallet                                      |
-| Maturity bypass             | Borrow rejects at or after maturity                      | Debt has no liquidation mechanism                                |
-| Source collateral release   | Time-locked source withdrawal                            | Destination cannot prevent post-expiry withdrawal                |
-| Stalled attestation network | ChainInfo height must exist and advance within a window  | A short stall can delay readiness before it becomes stale        |
-| Public metrics leakage      | Aggregate counts only; no wallet lists                   | Individual jobs remain public-chain evidence                     |
-| Profile misattribution      | Pool updates the line borrower after successful transfer | Profile is activity accounting, not identity or creditworthiness |
+| Threat                      | Control                                                                                         | Residual risk                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Fake transaction hash       | Transaction/receipt lookup plus on-chain proof verification                                     | Source RPC can delay classification                                    |
+| Failed source call          | Receipt status checked off-chain and on-chain                                                   | None within supported receipt encoding                                 |
+| Look-alike event            | Proof-contained sender/destination plus exact signature, emitter, topics, token, and data shape | Direct EOA lock policy excludes intermediary smart wallets             |
+| Tampered proof              | BlockProver precompile verification                                                             | Attestcoin protocol/testnet assumptions                                |
+| Proof replay                | One-time query ID                                                                               | None after final destination state                                     |
+| Same lock in another proof  | One-time proof-derived lock ID                                                                  | None after final destination state                                     |
+| Signature reuse or swapping | EIP-712 binds wallet, tx, chain, vault, API, and expiry                                         | Compromised borrower wallet                                            |
+| Relayer abuse               | One-time typed challenge, transactional quota, IP limit                                         | Distributed abuse across wallets and IPs                               |
+| Worker crash                | Persisted submission hash plus chain reconciliation                                             | RPC availability can delay recovery                                    |
+| Browser refresh             | Pre-confirmation wallet journal plus receipt/REST recovery                                      | Local storage can be cleared; chain and API state remain authoritative |
+| Over-borrow                 | Pool checks `debt + amount <= limit`                                                            | Mock asset has no market value                                         |
+| Unauthorized borrowing      | `msg.sender == borrower`                                                                        | Compromised borrower wallet                                            |
+| Maturity bypass             | Borrow rejects at or after maturity                                                             | Debt has no liquidation mechanism                                      |
+| Source collateral release   | Time-locked source withdrawal                                                                   | Destination cannot prevent post-expiry withdrawal                      |
+| Stalled attestation network | ChainInfo height must exist and advance within a window                                         | A short stall can delay readiness before it becomes stale              |
+| Public metrics leakage      | Aggregate counts only; no wallet lists                                                          | Individual jobs remain public-chain evidence                           |
+| Profile misattribution      | Pool updates the line borrower after successful transfer                                        | Profile is activity accounting, not identity or creditworthiness       |
 
 ## Known limitation: no trustless liquidation
 

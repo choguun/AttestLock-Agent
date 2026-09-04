@@ -102,10 +102,13 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
         uint64 collateralUnlockAt,
         bytes32 queryId
     ) external onlyASC {
-        if (
-            lockId == bytes32(0) || borrower == address(0) || limit == 0 || maturity <= block.timestamp
-                || collateralUnlockAt <= maturity
-        ) revert InvalidLine();
+        if (lockId == bytes32(0)) revert InvalidLine();
+        if (borrower == address(0)) revert InvalidLine();
+        if (limit == 0) revert InvalidLine();
+        if (maturity <= block.timestamp) revert InvalidLine();
+        if (collateralAmount == 0) revert InvalidLine();
+        if (collateralUnlockAt <= maturity) revert InvalidLine();
+        if (queryId == bytes32(0)) revert InvalidLine();
         if (lines[lockId].borrower != address(0)) revert LineAlreadyExists();
 
         lines[lockId] = CreditLine({

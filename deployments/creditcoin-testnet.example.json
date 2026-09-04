@@ -16,6 +16,41 @@
     "CreditPool": null,
     "AttestLockASC": null
   },
+  "contractRecords": {
+    "MockUSD": {
+      "address": null,
+      "constructorArguments": [],
+      "deploymentTransaction": null,
+      "deploymentBlock": null,
+      "deployedAt": null,
+      "runtimeCodeHash": null,
+      "verificationStatus": "not-checked",
+      "explorerAddressUrl": null,
+      "explorerTransactionUrl": null
+    },
+    "CreditPool": {
+      "address": null,
+      "constructorArguments": [],
+      "deploymentTransaction": null,
+      "deploymentBlock": null,
+      "deployedAt": null,
+      "runtimeCodeHash": null,
+      "verificationStatus": "not-checked",
+      "explorerAddressUrl": null,
+      "explorerTransactionUrl": null
+    },
+    "AttestLockASC": {
+      "address": null,
+      "constructorArguments": [],
+      "deploymentTransaction": null,
+      "deploymentBlock": null,
+      "deployedAt": null,
+      "runtimeCodeHash": null,
+      "verificationStatus": "not-checked",
+      "explorerAddressUrl": null,
+      "explorerTransactionUrl": null
+    }
+  },
   "constructorArguments": {},
   "codeHashes": {},
   "sourceBindings": {

@@ -7,7 +7,7 @@ AttestLock's first user is a Creditcoin testnet lending or risk team that needs 
 1. Open the hosted app and connect an EIP-1193 wallet.
 2. Switch to Sepolia, claim the one-time `100 mUSDC` faucet, and approve the vault.
 3. Lock `100 mUSDC` for 15 days. The app immediately asks for an EIP-712 signature authorizing only that transaction hash.
-4. Follow the persisted job through attestation, proof generation, preflight, and Creditcoin execution.
+4. Follow the persisted job through attestation, proof generation, preflight, and Creditcoin execution. Refreshing during the proof recovers jobs over REST/SSE; already-submitted wallet transactions are read from the local journal rather than broadcast again.
 5. Switch to Creditcoin testnet. Confirm the 50 mUSD line, borrower profile, proof transaction, and source transaction.
 6. Borrow with the connected wallet. The worker cannot sign this transaction.
 
@@ -27,7 +27,7 @@ Content-Type: application/json
 }
 ```
 
-Sign the returned EIP-712 `QueueAuthorization`, then queue it:
+Sign the returned EIP-712 `QueueProofJob`, then queue it:
 
 ```http
 POST /api/jobs
@@ -63,7 +63,7 @@ The deployed ASC accepts exactly one matching log from the immutable source vaul
 - Bind the destination ASC to the chain key, vault, token, pool, and native verifier.
 - Fund mock pool liquidity and set its ASC exactly once.
 - Run the worker with a dedicated, capped testnet relayer and private PostgreSQL.
-- Compile the web app with a live API origin and nonzero deployed addresses.
+- Compile the web app with a live API origin, all five nonzero deployed addresses, and one verified non-vault Sepolia transaction for the refusal button.
 - Verify `/health`, every `/ready` component, `/api/stats`, CORS, code hashes, and explorer links.
 - Capture one valid proof, one borrower-signed draw, and unchanged state for rejected inputs.
 - Never describe source liquidation or release as enforced until a separate authenticated write path exists.

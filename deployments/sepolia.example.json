@@ -14,6 +14,30 @@
     "MockUSDC": null,
     "LockVault": null
   },
+  "contractRecords": {
+    "MockUSDC": {
+      "address": null,
+      "constructorArguments": [],
+      "deploymentTransaction": null,
+      "deploymentBlock": null,
+      "deployedAt": null,
+      "runtimeCodeHash": null,
+      "verificationStatus": "not-checked",
+      "explorerAddressUrl": null,
+      "explorerTransactionUrl": null
+    },
+    "LockVault": {
+      "address": null,
+      "constructorArguments": [],
+      "deploymentTransaction": null,
+      "deploymentBlock": null,
+      "deployedAt": null,
+      "runtimeCodeHash": null,
+      "verificationStatus": "not-checked",
+      "explorerAddressUrl": null,
+      "explorerTransactionUrl": null
+    }
+  },
   "constructorArguments": {},
   "codeHashes": {},
   "transactions": {},

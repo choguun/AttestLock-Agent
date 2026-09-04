@@ -114,4 +114,16 @@ describeDatabase('PostgresJobStore', () => {
       failedJobs: 0,
     });
   });
+
+  it('normalizes transaction hashes before enforcing uniqueness', async () => {
+    const wallet = Wallet.createRandom().address;
+    const mixedCaseHash = `0x${'Ab'.repeat(32)}`;
+    const first = await store.createJob(mixedCaseHash, wallet);
+    const second = await store.createJob(mixedCaseHash.toLowerCase(), wallet);
+
+    expect(first.id).toBe(second.id);
+    expect(first.txHash).toBe(mixedCaseHash.toLowerCase());
+    const rows = await sql<Array<{ count: number }>>`select count(*)::int as count from jobs`;
+    expect(rows[0]?.count).toBe(1);
+  });
 });

@@ -10,7 +10,10 @@ describe('AttestLock judge flow', () => {
     expect(screen.getByRole('button', { name: 'Lock + prove' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Prove it fails' })).toBeDisabled();
     expect(screen.getByLabelText('Creditcoin borrower profile')).toHaveTextContent('Proven lines—');
-    expect(screen.getByLabelText('Public protocol activity')).toHaveTextContent('Authorized wallets—');
+    expect(screen.getByLabelText('Public protocol activity')).toHaveTextContent(
+      'Authorized wallets (aggregate)—'
+    );
+    expect(screen.getByText(/proof-gated credit · judge-safe preview/i)).toBeInTheDocument();
   });
 
   it('exposes labelled transaction controls and a live status region', () => {

@@ -37,7 +37,28 @@ export interface PublicStats {
   refusedJobs: number;
   failedJobs: number;
   latestAttestedHeight: number | null;
+  linesOpened: number;
+  borrowersWhoDrew: number;
+  totalCreditOpenedAtomic: string;
+  totalBorrowedAtomic: string;
+  totalRepaidAtomic: string;
+  outstandingDebtAtomic: string;
 }
+
+export type JobStats = Pick<
+  PublicStats,
+  'totalJobs' | 'uniqueWallets' | 'executedJobs' | 'refusedJobs' | 'failedJobs'
+>;
+
+export type ProtocolStats = Pick<
+  PublicStats,
+  | 'linesOpened'
+  | 'borrowersWhoDrew'
+  | 'totalCreditOpenedAtomic'
+  | 'totalBorrowedAtomic'
+  | 'totalRepaidAtomic'
+  | 'outstandingDebtAtomic'
+>;
 
 export interface ReadinessChecks {
   database: boolean;
@@ -45,6 +66,7 @@ export interface ReadinessChecks {
   destinationRpc: boolean;
   sourceContracts: boolean;
   destinationContracts: boolean;
+  contractBindings: boolean;
   attestcoinChain: boolean;
   activeAttestation: boolean;
   proofBuilder: boolean;
@@ -52,10 +74,13 @@ export interface ReadinessChecks {
 }
 
 export interface ReadinessReport {
+  schemaVersion: 2;
   status: 'ready' | 'unavailable';
   version: string;
   checks: ReadinessChecks;
   latestAttestedHeight: number | null;
+  attestationAdvancedAt: string | null;
+  proofBuilderAttestedHeight: number | null;
 }
 
 export interface Job {

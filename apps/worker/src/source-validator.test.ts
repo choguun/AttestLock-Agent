@@ -29,7 +29,10 @@ function receipt(overrides: Record<string, unknown> = {}) {
 }
 
 function validator(value: ReturnType<typeof receipt> | null) {
-  const provider = { getTransactionReceipt: async () => value } as unknown as JsonRpcProvider;
+  const provider = {
+    getTransactionReceipt: async () => value,
+    getTransaction: async () => (value ? { from: borrower, to: value.to } : null),
+  } as unknown as JsonRpcProvider;
   return new SourceLockValidator(provider, vault, token);
 }
 
@@ -79,5 +82,15 @@ describe('SourceLockValidator', () => {
       expect(error).toBeInstanceOf(RefusedError);
       expect((error as RefusedError).code).toBe(code);
     }
+  });
+
+  it('refuses a transaction whose sender differs from its event borrower', async () => {
+    const provider = {
+      getTransactionReceipt: async () => receipt(),
+      getTransaction: async () => ({ from: Wallet.createRandom().address, to: vault }),
+    } as unknown as JsonRpcProvider;
+    await expect(
+      new SourceLockValidator(provider, vault, token).validate({ txHash, borrower } as never)
+    ).rejects.toMatchObject({ code: 'SOURCE_SENDER_MISMATCH' });
   });
 });

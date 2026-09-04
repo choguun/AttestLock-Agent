@@ -165,6 +165,33 @@ async function installWallet(page: Page) {
         },
       };
       Object.defineProperty(window, 'ethereum', { value: provider, configurable: true });
+      const streams = new Set<{
+        emit(name: string, detail: unknown): void;
+        close(): void;
+      }>();
+      class MockEventSource {
+        private readonly listeners = new Map<string, Set<(event: MessageEvent) => void>>();
+        constructor(url: string) {
+          void url;
+          streams.add(this);
+        }
+        addEventListener(name: string, listener: (event: MessageEvent) => void) {
+          const group = this.listeners.get(name) ?? new Set();
+          group.add(listener);
+          this.listeners.set(name, group);
+        }
+        emit(name: string, detail: unknown) {
+          const event = new MessageEvent(name, { data: JSON.stringify(detail) });
+          for (const listener of this.listeners.get(name) ?? []) listener(event);
+        }
+        close() {
+          streams.delete(this);
+        }
+      }
+      Object.defineProperty(window, 'EventSource', { value: MockEventSource, configurable: true });
+      (window as unknown as { __emitAttestLockJob(job: unknown): void }).__emitAttestLockJob = (job) => {
+        for (const stream of streams) stream.emit('job', job);
+      };
       Object.defineProperty(navigator, 'clipboard', {
         value: { writeText: async () => undefined },
         configurable: true,
@@ -195,18 +222,22 @@ async function installWallet(page: Page) {
   );
 }
 
-function job(txHash: string, status: 'executed' | 'refused') {
+function job(txHash: string, status: 'queued' | 'proving' | 'executed' | 'refused') {
   const now = new Date().toISOString();
   return {
     id:
-      status === 'executed' ? '11111111-1111-4111-8111-111111111111' : '22222222-2222-4222-8222-222222222222',
+      status === 'refused' ? '22222222-2222-4222-8222-222222222222' : '11111111-1111-4111-8111-111111111111',
     txHash,
     borrower: wallet,
     status,
     explanation:
       status === 'executed'
         ? 'The Sepolia lock proof opened a bounded Creditcoin line.'
-        : 'The source transaction did not emit the required vault event.',
+        : status === 'refused'
+          ? 'The source transaction did not emit the required vault event.'
+          : status === 'proving'
+            ? 'Attestation confirmed. Generating the official proof payload.'
+            : 'Proof job queued for deterministic validation.',
     attemptCount: 1,
     nextAttemptAt: null,
     evidence:
@@ -243,6 +274,12 @@ async function mockApi(page: Page) {
           refusedJobs: 1,
           failedJobs: 0,
           latestAttestedHeight: 11_630_230,
+          linesOpened: 1,
+          borrowersWhoDrew: 1,
+          totalCreditOpenedAtomic: '50000000',
+          totalBorrowedAtomic: '50000000',
+          totalRepaidAtomic: '50000000',
+          outstandingDebtAtomic: '0',
         },
       });
     }
@@ -258,16 +295,21 @@ async function mockApi(page: Page) {
           typedData: {
             domain: { name: 'AttestLock Agent', version: '1', chainId: 11_155_111, verifyingContract: vault },
             types: {
-              QueueAuthorization: [
+              QueueProofJob: [
                 { name: 'wallet', type: 'address' },
                 { name: 'txHash', type: 'bytes32' },
                 { name: 'nonce', type: 'string' },
+                { name: 'expiresAt', type: 'uint64' },
+                { name: 'apiOrigin', type: 'string' },
               ],
             },
+            primaryType: 'QueueProofJob',
             message: {
               wallet: body.wallet,
               txHash: body.txHash,
               nonce: '33333333-3333-4333-8333-333333333333',
+              expiresAt: Math.floor(Date.now() / 1000) + 60,
+              apiOrigin: 'http://127.0.0.1:4301',
             },
           },
         },
@@ -275,8 +317,26 @@ async function mockApi(page: Page) {
     }
     if (url.pathname === '/api/jobs' && request.method() === 'POST') {
       const body = request.postDataJSON() as { txHash: string };
-      const created = job(body.txHash, body.txHash === junkTx ? 'refused' : 'executed');
+      const created = job(body.txHash, body.txHash === junkTx ? 'refused' : 'queued');
       jobs.unshift(created);
+      if (body.txHash !== junkTx) {
+        setTimeout(() => {
+          Object.assign(created, job(body.txHash, 'proving'));
+          void page
+            .evaluate((next) => {
+              (window as unknown as { __emitAttestLockJob(job: unknown): void }).__emitAttestLockJob(next);
+            }, created)
+            .catch(() => undefined);
+        }, 150);
+        setTimeout(() => {
+          Object.assign(created, job(body.txHash, 'executed'));
+          void page
+            .evaluate((next) => {
+              (window as unknown as { __emitAttestLockJob(job: unknown): void }).__emitAttestLockJob(next);
+            }, created)
+            .catch(() => undefined);
+        }, 900);
+      }
       return route.fulfill({
         status: 202,
         json: created,
@@ -299,7 +359,7 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await mockApi(page);
   await page.goto('http://127.0.0.1:4174');
 
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
+  await expect(page.getByRole('button', { name: '0x5555…5555' })).toBeVisible();
   await expect(page.getByText('Sepolia', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Public protocol activity')).toContainText('11,630,230');
 
@@ -307,6 +367,11 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await expect(page.getByRole('status')).toContainText('Faucet transaction confirmed');
   await page.getByRole('button', { name: 'Approve 100' }).click();
   await page.getByRole('button', { name: 'Lock + prove' }).click();
+  await expect(page.getByLabel('Proof job progress').locator('[aria-current="step"]')).toContainText(
+    'proving'
+  );
+  await page.reload();
+  await expect(page.getByText('Sepolia', { exact: true })).toBeVisible();
   await expect(page.getByText('VERIFIED', { exact: true })).toBeVisible();
   await expect(page.getByText('Attested height').locator('..')).toContainText('11,630,230');
   await expect(page.getByRole('link', { name: /Proof transaction/ })).toHaveAttribute(

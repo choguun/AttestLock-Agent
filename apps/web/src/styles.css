@@ -461,7 +461,7 @@ h2 {
 }
 .protocol-stats {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border: 1px solid var(--line);
   border-top: 0;
   background: var(--line);
@@ -474,6 +474,12 @@ h2 {
 .protocol-stats span,
 .protocol-stats strong {
   display: block;
+}
+.protocol-stats > small {
+  grid-column: 1 / -1;
+  padding: 10px 18px;
+  color: #758079;
+  background: #080a09;
 }
 .protocol-stats span {
   color: #758079;
