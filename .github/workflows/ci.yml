@@ -47,6 +47,9 @@ jobs:
       - name: Measure contract coverage
         run: pnpm contracts:coverage
       - name: Audit production dependencies
+        env:
+          npm_config_fetch_retries: 0
+          npm_config_fetch_timeout: 30000
         run: pnpm audit --prod --audit-level high --ignore-registry-errors
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
