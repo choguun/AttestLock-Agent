@@ -72,7 +72,7 @@ This snapshot is repository evidence, not live-chain proof.
 | Worker health URL       | Reserved: `attestlock-worker-production.up.railway.app`; no deployment         |
 | Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023           |
 | Merged-main CI run      | https://github.com/choguun/AttestLock-Agent/actions/runs/33825126459           |
-| Evidence-complete CI    | Pending current PR push                                                        |
+| Evidence-complete CI    | https://github.com/choguun/AttestLock-Agent/actions/runs/33899048858           |
 
 ## Railway observation
 
