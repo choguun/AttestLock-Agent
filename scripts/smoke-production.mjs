@@ -96,7 +96,7 @@ const [registered, latest, relayerBalance] = await Promise.all([
   chainInfoProvider.getLatestAttestedHeightAndHash(1),
   creditcoin.getBalance(getAddress(process.env.RELAYER_ADDRESS)),
 ]);
-if (registered.chainKey !== 1 || registered.chainId !== 11_155_111) {
+if (!registered || registered.chainKey !== 1 || registered.chainId !== 11_155_111) {
   throw new Error('Creditcoin ChainInfo does not bind chainKey 1 to Sepolia');
 }
 if (!latest.exists || latest.height <= 0 || latest.height < readiness.latestAttestedHeight) {
