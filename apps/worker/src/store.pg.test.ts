@@ -96,4 +96,34 @@ describeDatabase('PostgresJobStore', () => {
     `;
     expect(new Set(attempts.map((attempt) => attempt.job_id))).toEqual(new Set([first.id, second.id]));
   });
+
+  it('returns aggregate public statistics without borrower identities', async () => {
+    const firstWallet = Wallet.createRandom().address;
+    const secondWallet = Wallet.createRandom().address;
+    const first = await store.createJob(Wallet.createRandom().privateKey, firstWallet);
+    await store.createJob(Wallet.createRandom().privateKey, firstWallet);
+    const third = await store.createJob(Wallet.createRandom().privateKey, secondWallet);
+    await store.transition(first.id, { status: 'executed' });
+    await store.transition(third.id, { status: 'refused' });
+
+    expect(await store.getPublicStats()).toEqual({
+      totalJobs: 3,
+      uniqueWallets: 2,
+      executedJobs: 1,
+      refusedJobs: 1,
+      failedJobs: 0,
+    });
+  });
+
+  it('normalizes transaction hashes before enforcing uniqueness', async () => {
+    const wallet = Wallet.createRandom().address;
+    const mixedCaseHash = `0x${'Ab'.repeat(32)}`;
+    const first = await store.createJob(mixedCaseHash, wallet);
+    const second = await store.createJob(mixedCaseHash.toLowerCase(), wallet);
+
+    expect(first.id).toBe(second.id);
+    expect(first.txHash).toBe(mixedCaseHash.toLowerCase());
+    const rows = await sql<Array<{ count: number }>>`select count(*)::int as count from jobs`;
+    expect(rows[0]?.count).toBe(1);
+  });
 });

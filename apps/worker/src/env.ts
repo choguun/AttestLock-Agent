@@ -20,11 +20,21 @@ const schema = z.object({
   SOURCE_VAULT_ADDRESS: address,
   SOURCE_TOKEN_ADDRESS: address,
   ATTESTLOCK_ASC_ADDRESS: address,
+  CREDIT_POOL_ADDRESS: address,
+  MOCK_USD_ADDRESS: address,
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   PUBLIC_API_ORIGIN: z.string().url().default('http://localhost:3001'),
   MAX_JOBS_PER_WALLET_PER_DAY: z.coerce.number().int().positive().default(5),
   MAX_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(60),
   CREDITCOIN_DEPLOYMENT_BLOCK: z.coerce.number().int().positive(),
+  MIN_RELAYER_BALANCE_WEI: z.string().regex(/^\d+$/).default('10000000000000000'),
+  MAX_ATTESTATION_STALENESS_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30 * 60 * 1000),
+  MAX_PROOF_BUILDER_LAG_BLOCKS: z.coerce.number().int().nonnegative().default(500),
+  RAILWAY_GIT_COMMIT_SHA: z.string().default('development'),
 });
 
 export type WorkerConfig = z.infer<typeof schema>;

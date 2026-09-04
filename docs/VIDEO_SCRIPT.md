@@ -20,3 +20,7 @@
 
 **1:26–1:30**
 “Collateral stays on Ethereum. No valid proof means no Creditcoin credit.”
+
+## Uncut technical appendix
+
+Record a second, unedited walkthrough after the submission cut. It must show the sanitized seven-field ProofBuilder tuple, source receipt and decoded lock event, native `0x0FD2` proof receipt, matching ASC event and pool line, borrower-signed draw, post-maturity repayment, both replay flags, and borrower-profile accounting. Then show the junk refusal plus broadcast tampered-proof and duplicate-query reverts with the live-evidence command's before/after state assertions. Keep RPC credentials, database URLs, wallet secrets, and browser extension internals off-screen.

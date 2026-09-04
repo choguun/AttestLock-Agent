@@ -59,4 +59,13 @@ export const migrations: Migration[] = [
         on job_attempts (job_id, started_at desc)`,
     ],
   },
+  {
+    version: 4,
+    statements: [
+      `update jobs set tx_hash = lower(tx_hash)`,
+      `update challenges set tx_hash = lower(tx_hash) where tx_hash is not null`,
+      `create unique index if not exists jobs_tx_hash_lower_unique on jobs (lower(tx_hash))`,
+      `create index if not exists challenges_tx_hash_lower_idx on challenges (lower(tx_hash))`,
+    ],
+  },
 ];

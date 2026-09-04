@@ -13,14 +13,74 @@ export type JobStatus = (typeof jobStatuses)[number];
 
 export interface JobEvidence {
   blockNumber?: number;
+  attestedHeight?: number;
+  attestedAt?: string;
   lockId?: string;
   collateralAmount?: string;
   collateralUnlockAt?: number;
   proofMerkleRoot?: string;
   continuityRootCount?: number;
+  proofGeneratedAt?: string;
   creditcoinTxHash?: string;
   creditcoinSubmissionTxHash?: string;
+  creditcoinBlockNumber?: number;
+  gasUsed?: string;
+  processingDurationMs?: number;
   queryId?: string;
+}
+
+export interface PublicStats {
+  generatedAt: string;
+  totalJobs: number;
+  uniqueWallets: number;
+  executedJobs: number;
+  refusedJobs: number;
+  failedJobs: number;
+  latestAttestedHeight: number | null;
+  linesOpened: number;
+  borrowersWhoDrew: number;
+  totalCreditOpenedAtomic: string;
+  totalBorrowedAtomic: string;
+  totalRepaidAtomic: string;
+  outstandingDebtAtomic: string;
+}
+
+export type JobStats = Pick<
+  PublicStats,
+  'totalJobs' | 'uniqueWallets' | 'executedJobs' | 'refusedJobs' | 'failedJobs'
+>;
+
+export type ProtocolStats = Pick<
+  PublicStats,
+  | 'linesOpened'
+  | 'borrowersWhoDrew'
+  | 'totalCreditOpenedAtomic'
+  | 'totalBorrowedAtomic'
+  | 'totalRepaidAtomic'
+  | 'outstandingDebtAtomic'
+>;
+
+export interface ReadinessChecks {
+  database: boolean;
+  sourceRpc: boolean;
+  destinationRpc: boolean;
+  sourceContracts: boolean;
+  destinationContracts: boolean;
+  contractBindings: boolean;
+  attestcoinChain: boolean;
+  activeAttestation: boolean;
+  proofBuilder: boolean;
+  fundedRelayer: boolean;
+}
+
+export interface ReadinessReport {
+  schemaVersion: 2;
+  status: 'ready' | 'unavailable';
+  version: string;
+  checks: ReadinessChecks;
+  latestAttestedHeight: number | null;
+  attestationAdvancedAt: string | null;
+  proofBuilderAttestedHeight: number | null;
 }
 
 export interface Job {

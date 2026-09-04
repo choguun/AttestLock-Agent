@@ -31,4 +31,4 @@
 
 ## Pass criteria
 
-The recording must visibly include a Sepolia lock URL, a Creditcoin proof URL, a borrower-signed borrow URL, the query ID and lock ID, and a deterministic refusal. If any is absent, the video is a draft, not submission evidence.
+The 90-second recording must visibly include a Sepolia lock URL, a Creditcoin proof URL, a borrower-signed borrow URL, the query ID and lock ID, and a deterministic refusal. The separate uncut technical appendix must show the proof tuple, receipts, rejected destination transactions, and live state assertions. If any is absent, the corresponding video is a draft, not submission evidence.

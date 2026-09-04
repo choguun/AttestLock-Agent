@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Job } from '@attestlock/shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Job, PublicStats } from '@attestlock/shared';
+import { formatUnits } from 'ethers';
 import { api } from './api';
 import { config, isConfigured } from './config';
 import { StatusTimeline } from './StatusTimeline';
@@ -12,16 +13,27 @@ import {
   faucet,
   formatTimestamp,
   lockCollateral,
+  lockFactFromReceipt,
   readBalances,
+  readBorrowerProfile,
   readCreditLine,
   repay,
+  restoreWallet,
   shortAddress,
   switchChain,
   watchWallet,
+  type BorrowerProfileView,
   type CreditLineView,
   type WalletSession,
   walletErrorMessage,
 } from './wallet';
+import {
+  recordTransaction,
+  updateTransaction,
+  walletTransactions,
+  type JournalAction,
+  type JournalEntry,
+} from './transaction-journal';
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -47,15 +59,27 @@ export default function App() {
   const [notice, setNotice] = useState('Connect a wallet to begin.');
   const [busy, setBusy] = useState<string | null>(null);
   const [line, setLine] = useState<CreditLineView | null>(null);
+  const [profile, setProfile] = useState<BorrowerProfileView | null>(null);
   const [creditTx, setCreditTx] = useState<string | null>(null);
   const [sourceTx, setSourceTx] = useState<{ label: string; hash: string } | null>(null);
   const [balances, setBalances] = useState<Partial<{ collateral: string; credit: string }>>({});
+  const [stats, setStats] = useState<PublicStats | null>(null);
+  const recoveredEntries = useRef(new Set<string>());
   const latest = jobs[0];
   const executed = jobs.find((job) => job.status === 'executed' && job.evidence.lockId);
 
   const refreshJobs = useCallback(async (address: string) => {
     const next = await api.listJobs(address);
     setJobs(next);
+  }, []);
+
+  useEffect(() => {
+    if (!isConfigured) return;
+    void restoreWallet()
+      .then((restored) => {
+        if (restored) setSession(restored);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -72,11 +96,24 @@ export default function App() {
   }, [refreshJobs, session]);
 
   useEffect(() => {
+    if (!isConfigured) return;
+    const refresh = () =>
+      void api
+        .stats()
+        .then(setStats)
+        .catch(() => undefined);
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!session) return;
     return watchWallet(() => {
       void connectWallet().then((next) => {
         setSession(next);
         setLine(null);
+        setProfile(null);
         setBalances({});
         setNotice(`Wallet changed to ${shortAddress(next.address)} on ${chainLabel(next.chainId)}.`);
       });
@@ -86,13 +123,12 @@ export default function App() {
   useEffect(() => {
     if (!session || !isConfigured) return;
     void refreshBalancesFor(session);
+    void recoverTransactions(session);
   }, [session]);
 
   useEffect(() => {
     if (!session || session.chainId !== config.creditcoinChainId || !executed?.evidence.lockId) return;
-    void readCreditLine(session.signer, executed.evidence.lockId)
-      .then(setLine)
-      .catch(() => setLine(null));
+    void refreshCreditState(session, executed.evidence.lockId);
   }, [executed?.evidence.lockId, session]);
 
   const proofFact = useMemo(() => {
@@ -121,17 +157,106 @@ export default function App() {
     }
   }
 
-  async function queue(txHash: string) {
-    if (!session) throw new Error('Connect a wallet first.');
-    const challenge = await api.challenge(session.address, txHash);
-    const signature = await session.signer.signTypedData(
+  async function refreshCreditState(currentSession: WalletSession, lockId: string) {
+    try {
+      const [nextLine, nextProfile] = await Promise.all([
+        readCreditLine(currentSession.signer, lockId),
+        readBorrowerProfile(currentSession.signer, currentSession.address),
+      ]);
+      setLine(nextLine);
+      setProfile(nextProfile);
+    } catch {
+      setLine(null);
+      setProfile(null);
+    }
+  }
+
+  function track(
+    currentSession: WalletSession,
+    action: JournalAction,
+    txHash: string,
+    lockId?: string
+  ): JournalEntry {
+    return recordTransaction(currentSession.address, currentSession.chainId, action, txHash, lockId);
+  }
+
+  async function queueFor(currentSession: WalletSession, txHash: string) {
+    const journal = recordTransaction(currentSession.address, config.sepoliaChainId, 'queue', txHash);
+    const challenge = await api.challenge(currentSession.address, txHash);
+    const signature = await currentSession.signer.signTypedData(
       challenge.typedData.domain,
       challenge.typedData.types,
       challenge.typedData.message
     );
-    const job = await api.createJob({ txHash, wallet: session.address, signature, nonce: challenge.nonce });
+    const job = await api.createJob({
+      txHash,
+      wallet: currentSession.address,
+      signature,
+      nonce: challenge.nonce,
+    });
+    updateTransaction(journal, 'confirmed', job.evidence.lockId);
     setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
     setNotice('Proof job queued. The worker can prove the lock, but it cannot borrow for you.');
+  }
+
+  async function queue(txHash: string) {
+    if (!session) throw new Error('Connect a wallet first.');
+    return queueFor(session, txHash);
+  }
+
+  async function recoverTransactions(currentSession: WalletSession) {
+    const entries = walletTransactions(currentSession.address);
+    const source = entries.find(
+      (entry) => entry.chainId === config.sepoliaChainId && entry.action !== 'queue'
+    );
+    const credit = entries.find(
+      (entry) => entry.chainId === config.creditcoinChainId && ['borrow', 'repay'].includes(entry.action)
+    );
+    if (source) setSourceTx({ label: source.action === 'lock' ? 'Lock' : 'Recovered', hash: source.txHash });
+    if (credit) setCreditTx(credit.txHash);
+
+    for (const entry of entries.filter((candidate) => candidate.status === 'pending')) {
+      if (recoveredEntries.current.has(entry.key)) continue;
+      recoveredEntries.current.add(entry.key);
+      if (entry.action === 'queue') {
+        try {
+          await queueFor(currentSession, entry.txHash);
+        } catch {
+          recoveredEntries.current.delete(entry.key);
+        }
+        continue;
+      }
+      if (entry.chainId !== currentSession.chainId) {
+        recoveredEntries.current.delete(entry.key);
+        continue;
+      }
+      try {
+        const receipt = await currentSession.provider.getTransactionReceipt(entry.txHash);
+        if (!receipt) {
+          recoveredEntries.current.delete(entry.key);
+          continue;
+        }
+        if (receipt.status !== 1) {
+          updateTransaction(entry, 'failed');
+          setNotice(`Recovered ${entry.action} transaction failed on-chain.`);
+          continue;
+        }
+        if (entry.action === 'lock') {
+          const fact = lockFactFromReceipt(receipt);
+          updateTransaction(entry, 'confirmed', fact.lockId);
+          setSourceTx({ label: 'Lock', hash: entry.txHash });
+          await queueFor(currentSession, entry.txHash);
+        } else {
+          updateTransaction(entry, 'confirmed');
+        }
+        if (entry.lockId && currentSession.chainId === config.creditcoinChainId) {
+          await refreshCreditState(currentSession, entry.lockId);
+        }
+        await refreshBalancesFor(currentSession);
+      } catch {
+        recoveredEntries.current.delete(entry.key);
+      }
+    }
   }
 
   return (
@@ -159,7 +284,11 @@ export default function App() {
 
       <section className="hero" id="top">
         <div>
-          <p className="eyebrow">Proof-gated credit · live testnets</p>
+          <p className="eyebrow">
+            {config.previewMode || !isConfigured
+              ? 'Proof-gated credit · judge-safe preview'
+              : 'Proof-gated credit · live testnets'}
+          </p>
           <h1>
             Collateral stays on Ethereum.
             <br />
@@ -233,7 +362,12 @@ export default function App() {
               }
               onClick={() =>
                 void act('Claiming faucet tokens', async () => {
-                  const hash = await faucet(session!.signer);
+                  let journal: JournalEntry | undefined;
+                  const hash = await faucet(session!.signer, (submitted) => {
+                    journal = track(session!, 'faucet', submitted);
+                    setSourceTx({ label: 'Faucet', hash: submitted });
+                  });
+                  if (journal) updateTransaction(journal, 'confirmed');
                   setSourceTx({ label: 'Faucet', hash });
                   await refreshBalancesFor(session!);
                   setNotice('Faucet transaction confirmed.');
@@ -249,7 +383,12 @@ export default function App() {
               }
               onClick={() =>
                 void act('Approving vault', async () => {
-                  const hash = await approveCollateral(session!.signer);
+                  let journal: JournalEntry | undefined;
+                  const hash = await approveCollateral(session!.signer, (submitted) => {
+                    journal = track(session!, 'approve', submitted);
+                    setSourceTx({ label: 'Approval', hash: submitted });
+                  });
+                  if (journal) updateTransaction(journal, 'confirmed');
                   setSourceTx({ label: 'Approval', hash });
                   setNotice('Vault approval confirmed.');
                 })
@@ -264,7 +403,12 @@ export default function App() {
               }
               onClick={() =>
                 void act('Locking collateral', async () => {
-                  const locked = await lockCollateral(session!.signer);
+                  let journal: JournalEntry | undefined;
+                  const locked = await lockCollateral(session!.signer, (submitted) => {
+                    journal = track(session!, 'lock', submitted);
+                    setSourceTx({ label: 'Lock', hash: submitted });
+                  });
+                  if (journal) updateTransaction(journal, 'confirmed', locked.lockId);
                   setSourceTx({ label: 'Lock', hash: locked.txHash });
                   await refreshBalancesFor(session!);
                   setNotice(`Collateral locked as ${locked.lockId.slice(0, 12)}…`);
@@ -329,6 +473,30 @@ export default function App() {
                 <div>
                   <dt>Merkle root</dt>
                   <dd>{latest.evidence.proofMerkleRoot.slice(0, 12)}…</dd>
+                </div>
+              )}
+              {latest.evidence.attestedHeight && (
+                <div>
+                  <dt>Attested height</dt>
+                  <dd>{latest.evidence.attestedHeight.toLocaleString()}</dd>
+                </div>
+              )}
+              {latest.evidence.creditcoinBlockNumber && (
+                <div>
+                  <dt>Creditcoin block</dt>
+                  <dd>{latest.evidence.creditcoinBlockNumber.toLocaleString()}</dd>
+                </div>
+              )}
+              {latest.evidence.gasUsed && (
+                <div>
+                  <dt>Proof gas</dt>
+                  <dd>{BigInt(latest.evidence.gasUsed).toLocaleString()}</dd>
+                </div>
+              )}
+              {latest.evidence.processingDurationMs !== undefined && (
+                <div>
+                  <dt>Proof latency</dt>
+                  <dd>{Math.round(latest.evidence.processingDurationMs / 1000)}s</dd>
                 </div>
               )}
               {latest.evidence.queryId && (
@@ -402,9 +570,19 @@ export default function App() {
               }
               onClick={() =>
                 void act('Borrowing 50 mUSD', async () => {
-                  const hash = await borrow(session!.signer, executed!.evidence.lockId!, '50');
+                  let journal: JournalEntry | undefined;
+                  const hash = await borrow(
+                    session!.signer,
+                    executed!.evidence.lockId!,
+                    '50',
+                    (submitted) => {
+                      journal = track(session!, 'borrow', submitted, executed!.evidence.lockId!);
+                      setCreditTx(submitted);
+                    }
+                  );
+                  if (journal) updateTransaction(journal, 'confirmed');
                   setCreditTx(hash);
-                  setLine(await readCreditLine(session!.signer, executed!.evidence.lockId!));
+                  await refreshCreditState(session!, executed!.evidence.lockId!);
                   await refreshBalancesFor(session!);
                   setNotice('Borrow confirmed by your wallet.');
                 })
@@ -424,9 +602,19 @@ export default function App() {
               }
               onClick={() =>
                 void act('Repaying debt', async () => {
-                  const hash = await repay(session!.signer, executed!.evidence.lockId!, line!.debt);
+                  const journals: JournalEntry[] = [];
+                  const hash = await repay(
+                    session!.signer,
+                    executed!.evidence.lockId!,
+                    line!.debt,
+                    (action, submitted) => {
+                      journals.push(track(session!, action, submitted, executed!.evidence.lockId!));
+                      setCreditTx(submitted);
+                    }
+                  );
+                  journals.forEach((journal) => updateTransaction(journal, 'confirmed'));
                   setCreditTx(hash);
-                  setLine(await readCreditLine(session!.signer, executed!.evidence.lockId!));
+                  await refreshCreditState(session!, executed!.evidence.lockId!);
                   await refreshBalancesFor(session!);
                   setNotice('Repayment confirmed.');
                 })
@@ -451,7 +639,65 @@ export default function App() {
           <p className="microcopy">
             The relayer can open a bounded line. It cannot call <code>borrow</code> for you.
           </p>
+          <section className="credit-profile" aria-label="Creditcoin borrower profile">
+            <div>
+              <span>Proven lines</span>
+              <strong>{profile?.lineCount ?? '—'}</strong>
+            </div>
+            <div>
+              <span>Credit opened</span>
+              <strong>{profile ? `${profile.totalCreditOpened} mUSD` : '—'}</strong>
+            </div>
+            <div>
+              <span>Total borrowed</span>
+              <strong>{profile ? `${profile.totalBorrowed} mUSD` : '—'}</strong>
+            </div>
+            <div>
+              <span>Total repaid</span>
+              <strong>{profile ? `${profile.totalRepaid} mUSD` : '—'}</strong>
+            </div>
+            <div>
+              <span>Outstanding</span>
+              <strong>{profile ? `${profile.outstandingDebt} mUSD` : '—'}</strong>
+            </div>
+          </section>
         </article>
+      </section>
+
+      <section className="protocol-stats" aria-label="Public protocol activity">
+        <div>
+          <span>Authorized wallets (aggregate)</span>
+          <strong>{stats?.uniqueWallets ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Proof jobs</span>
+          <strong>{stats?.totalJobs ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Executed</span>
+          <strong>{stats?.executedJobs ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Refused</span>
+          <strong>{stats?.refusedJobs ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Lines opened</span>
+          <strong>{stats?.linesOpened ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Borrowers who drew</span>
+          <strong>{stats?.borrowersWhoDrew ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Outstanding debt</span>
+          <strong>{stats ? `${formatUnits(stats.outstandingDebtAtomic, 6)} mUSD` : '—'}</strong>
+        </div>
+        <div>
+          <span>Latest Sepolia attestation</span>
+          <strong>{stats?.latestAttestedHeight?.toLocaleString() ?? '—'}</strong>
+        </div>
+        <small>Wallet counts are aggregate protocol activity, not verified unique people.</small>
       </section>
 
       <section className="refusal-demo">

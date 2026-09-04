@@ -21,6 +21,7 @@ Cross-chain lenders usually trust a bridge, oracle signer, or centralized operat
 - Both the happy path and a visible refusal path are judge-testable.
 - The autonomous worker is operational infrastructure, not a discretionary lender.
 - Credit lines are useful only after proof, while borrowing remains user-controlled.
+- Each proof-opened line and real draw or repayment updates a compact, reusable Creditcoin borrower profile without issuing a transferable credential.
 
 ## Attestcoin integration
 
@@ -28,7 +29,7 @@ The worker waits for Sepolia block attestation and requests the official Merkle 
 
 ## Creditcoin ecosystem value
 
-AttestLock demonstrates Creditcoin as a credit coordination layer for collateral already held on another chain. The production roadmap is multi-asset risk modules, credit history, and Attestcoin writability for source release/default handling—not a new asset bridge.
+AttestLock demonstrates Creditcoin as a credit coordination layer for collateral already held on another chain. Its borrower profile accumulates proof-opened credit, real borrowing, repayment, and outstanding debt on Creditcoin. The production roadmap is multi-asset risk modules and Attestcoin writability for source release/default handling—not a new asset bridge.
 
 ## Safety and limitations
 
@@ -36,15 +37,18 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 
 ## Required links
 
-| Field             | URL                                                                                           |
-| ----------------- | --------------------------------------------------------------------------------------------- |
-| Public repository | https://github.com/choguun/AttestLock-Agent                                                   |
-| Hosted demo       | https://attestlock-web-production.up.railway.app                                              |
-| Demo video        | Pending live evidence recording                                                               |
-| Slide deck PDF    | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck.pdf |
-| Sepolia lock      | Pending funded deployment                                                                     |
-| Creditcoin proof  | Pending funded deployment                                                                     |
-| Creditcoin borrow | Pending funded deployment                                                                     |
+| Field                    | URL                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| Public repository        | https://github.com/choguun/AttestLock-Agent                                                   |
+| Hosted demo              | https://attestlock-web-production.up.railway.app                                              |
+| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                |
+| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                              |
+| Demo video               | Pending live evidence recording                                                               |
+| Technical appendix video | Pending uncut live evidence recording                                                         |
+| Slide deck PDF           | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck.pdf |
+| Sepolia lock             | Pending funded deployment                                                                     |
+| Creditcoin proof         | Pending funded deployment                                                                     |
+| Creditcoin borrow        | Pending funded deployment                                                                     |
 
 ## Team information
 

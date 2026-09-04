@@ -7,6 +7,7 @@ import {
   parseUnits,
   type Eip1193Provider,
   type JsonRpcSigner,
+  type TransactionReceipt,
 } from 'ethers';
 import {
   CREDITCOIN_TESTNET_CHAIN_ID,
@@ -28,6 +29,8 @@ export interface WalletSession {
   chainId: number;
 }
 
+export type SubmissionListener = (hash: string) => void;
+
 type ObservableProvider = Eip1193Provider & {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
   removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
@@ -42,6 +45,15 @@ export async function connectWallet(): Promise<WalletSession> {
   const provider = new BrowserProvider(injected());
   await provider.send('eth_requestAccounts', []);
   const signer = await provider.getSigner();
+  const network = await provider.getNetwork();
+  return { provider, signer, address: await signer.getAddress(), chainId: Number(network.chainId) };
+}
+
+export async function restoreWallet(): Promise<WalletSession | null> {
+  const provider = new BrowserProvider(injected());
+  const accounts = (await provider.send('eth_accounts', [])) as string[];
+  if (accounts.length === 0) return null;
+  const signer = await provider.getSigner(accounts[0]);
   const network = await provider.getNetwork();
   return { provider, signer, address: await signer.getAddress(), chainId: Number(network.chainId) };
 }
@@ -73,36 +85,56 @@ export async function switchChain(chainId: number): Promise<WalletSession> {
   return connectWallet();
 }
 
-export async function faucet(signer: JsonRpcSigner): Promise<string> {
+async function waitForSuccess(tx: {
+  hash: string;
+  wait(): Promise<TransactionReceipt | null>;
+}): Promise<string> {
+  const receipt = await tx.wait();
+  if (!receipt || receipt.status !== 1) throw new Error('Wallet transaction was not successful.');
+  return tx.hash;
+}
+
+export async function faucet(signer: JsonRpcSigner, onSubmitted?: SubmissionListener): Promise<string> {
   const token = new Contract(config.mockUsdcAddress, mockUsdcAbi, signer);
   const tx = await token.getFunction('faucet')();
-  await tx.wait();
-  return tx.hash;
+  onSubmitted?.(tx.hash);
+  return waitForSuccess(tx);
 }
 
-export async function approveCollateral(signer: JsonRpcSigner): Promise<string> {
+export async function approveCollateral(
+  signer: JsonRpcSigner,
+  onSubmitted?: SubmissionListener
+): Promise<string> {
   const token = new Contract(config.mockUsdcAddress, mockUsdcAbi, signer);
   const tx = await token.getFunction('approve')(config.lockVaultAddress, MIN_COLLATERAL);
-  await tx.wait();
-  return tx.hash;
+  onSubmitted?.(tx.hash);
+  return waitForSuccess(tx);
 }
 
-export async function lockCollateral(signer: JsonRpcSigner): Promise<{ txHash: string; lockId: string }> {
-  const unlockAt = Math.floor(Date.now() / 1000) + 15 * 24 * 60 * 60;
-  const vault = new Contract(config.lockVaultAddress, lockVaultAbi, signer);
-  const tx = await vault.getFunction('lock')(MIN_COLLATERAL, unlockAt);
-  const receipt = await tx.wait();
-  if (!receipt || receipt.status !== 1) throw new Error('Collateral lock was not successful.');
+export function lockFactFromReceipt(receipt: TransactionReceipt): { lockId: string } {
   const iface = new Interface(lockVaultAbi);
   for (const log of receipt.logs) {
     try {
       const event = iface.parseLog(log);
-      if (event?.name === 'CollateralLocked') return { txHash: tx.hash, lockId: String(event.args.lockId) };
+      if (event?.name === 'CollateralLocked') return { lockId: String(event.args.lockId) };
     } catch {
       // Ignore unrelated logs.
     }
   }
   throw new Error('CollateralLocked evidence was missing from the receipt.');
+}
+
+export async function lockCollateral(
+  signer: JsonRpcSigner,
+  onSubmitted?: SubmissionListener
+): Promise<{ txHash: string; lockId: string }> {
+  const unlockAt = Math.floor(Date.now() / 1000) + 15 * 24 * 60 * 60;
+  const vault = new Contract(config.lockVaultAddress, lockVaultAbi, signer);
+  const tx = await vault.getFunction('lock')(MIN_COLLATERAL, unlockAt);
+  onSubmitted?.(tx.hash);
+  const receipt = await tx.wait();
+  if (!receipt || receipt.status !== 1) throw new Error('Collateral lock was not successful.');
+  return { txHash: tx.hash, ...lockFactFromReceipt(receipt) };
 }
 
 export interface CreditLineView {
@@ -112,6 +144,14 @@ export interface CreditLineView {
   maturity: number;
   collateralAmount: string;
   collateralUnlockAt: number;
+}
+
+export interface BorrowerProfileView {
+  lineCount: number;
+  totalCreditOpened: string;
+  totalBorrowed: string;
+  totalRepaid: string;
+  outstandingDebt: string;
 }
 
 export function canBorrowLine(
@@ -141,6 +181,21 @@ export async function readCreditLine(signer: JsonRpcSigner, lockId: string): Pro
     maturity: Number(line.maturity),
     collateralAmount: formatUnits(line.collateralAmount, 6),
     collateralUnlockAt: Number(line.collateralUnlockAt),
+  };
+}
+
+export async function readBorrowerProfile(
+  signer: JsonRpcSigner,
+  borrower: string
+): Promise<BorrowerProfileView> {
+  const pool = new Contract(config.creditPoolAddress, creditPoolAbi, signer);
+  const profile = await pool.getFunction('borrowerProfiles')(borrower);
+  return {
+    lineCount: Number(profile.lineCount),
+    totalCreditOpened: formatUnits(profile.totalCreditOpened, 6),
+    totalBorrowed: formatUnits(profile.totalBorrowed, 6),
+    totalRepaid: formatUnits(profile.totalRepaid, 6),
+    outstandingDebt: formatUnits(profile.outstandingDebt, 6),
   };
 }
 
@@ -181,22 +236,33 @@ export function walletErrorMessage(error: unknown): string {
   return candidate?.shortMessage ?? candidate?.message ?? String(error);
 }
 
-export async function borrow(signer: JsonRpcSigner, lockId: string, amount: string): Promise<string> {
+export async function borrow(
+  signer: JsonRpcSigner,
+  lockId: string,
+  amount: string,
+  onSubmitted?: SubmissionListener
+): Promise<string> {
   const pool = new Contract(config.creditPoolAddress, creditPoolAbi, signer);
   const tx = await pool.getFunction('borrow')(lockId, parseUnits(amount, 6));
-  await tx.wait();
-  return tx.hash;
+  onSubmitted?.(tx.hash);
+  return waitForSuccess(tx);
 }
 
-export async function repay(signer: JsonRpcSigner, lockId: string, amount: string): Promise<string> {
+export async function repay(
+  signer: JsonRpcSigner,
+  lockId: string,
+  amount: string,
+  onSubmitted?: (action: 'repay_approve' | 'repay', hash: string) => void
+): Promise<string> {
   const value = parseUnits(amount, 6);
   const stable = new Contract(config.mockUsdAddress, mockUsdAbi, signer);
   const approval = await stable.getFunction('approve')(config.creditPoolAddress, value);
-  await approval.wait();
+  onSubmitted?.('repay_approve', approval.hash);
+  await waitForSuccess(approval);
   const pool = new Contract(config.creditPoolAddress, creditPoolAbi, signer);
   const tx = await pool.getFunction('repay')(lockId, value);
-  await tx.wait();
-  return tx.hash;
+  onSubmitted?.('repay', tx.hash);
+  return waitForSuccess(tx);
 }
 
 export function shortAddress(address: string): string {

@@ -1,0 +1,39 @@
+name: Live production smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: vars.ATTESTLOCK_LIVE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WEB_URL: ${{ vars.WEB_URL }}
+      WORKER_URL: ${{ vars.WORKER_URL }}
+      SOURCE_CHAIN_RPC_URL: ${{ vars.SOURCE_CHAIN_RPC_URL }}
+      CREDITCOIN_RPC_URL: ${{ vars.CREDITCOIN_RPC_URL }}
+      SOURCE_TOKEN_ADDRESS: ${{ vars.SOURCE_TOKEN_ADDRESS }}
+      SOURCE_VAULT_ADDRESS: ${{ vars.SOURCE_VAULT_ADDRESS }}
+      MOCK_USD_ADDRESS: ${{ vars.MOCK_USD_ADDRESS }}
+      CREDIT_POOL_ADDRESS: ${{ vars.CREDIT_POOL_ADDRESS }}
+      ATTESTLOCK_ASC_ADDRESS: ${{ vars.ATTESTLOCK_ASC_ADDRESS }}
+      INVALID_SOURCE_TX_HASH: ${{ vars.INVALID_SOURCE_TX_HASH }}
+      RELAYER_ADDRESS: ${{ vars.RELAYER_ADDRESS }}
+      MIN_RELAYER_BALANCE_WEI: ${{ vars.MIN_RELAYER_BALANCE_WEI }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm smoke:production

@@ -1,4 +1,11 @@
-import { type CreateJobRequest, type Job } from '@attestlock/shared';
+import {
+  type CreateJobRequest,
+  type Job,
+  type ProtocolStats,
+  type PublicStats,
+  type ReadinessChecks,
+  type ReadinessReport,
+} from '@attestlock/shared';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { getAddress, isAddress, isHexString, verifyTypedData } from 'ethers';
@@ -44,6 +51,39 @@ export class InMemoryJobEvents implements JobEvents {
   }
 }
 
+export interface ChainReadiness {
+  checks: Omit<ReadinessChecks, 'database'>;
+  latestAttestedHeight: number | null;
+  attestationAdvancedAt: string | null;
+  proofBuilderAttestedHeight: number | null;
+}
+
+const emptyProtocolStats: ProtocolStats = {
+  linesOpened: 0,
+  borrowersWhoDrew: 0,
+  totalCreditOpenedAtomic: '0',
+  totalBorrowedAtomic: '0',
+  totalRepaidAtomic: '0',
+  outstandingDebtAtomic: '0',
+};
+
+const healthyChainReadiness: ChainReadiness = {
+  checks: {
+    sourceRpc: true,
+    destinationRpc: true,
+    sourceContracts: true,
+    destinationContracts: true,
+    contractBindings: true,
+    attestcoinChain: true,
+    activeAttestation: true,
+    proofBuilder: true,
+    fundedRelayer: true,
+  },
+  latestAttestedHeight: 1,
+  attestationAdvancedAt: new Date(0).toISOString(),
+  proofBuilderAttestedHeight: 1,
+};
+
 export async function buildServer(
   store: JobStore,
   config: Pick<
@@ -53,9 +93,11 @@ export async function buildServer(
     | 'MAX_REQUESTS_PER_MINUTE'
     | 'SOURCE_VAULT_ADDRESS'
     | 'PUBLIC_API_ORIGIN'
+    | 'RAILWAY_GIT_COMMIT_SHA'
   >,
   events: JobEvents,
-  chainReadiness: () => Promise<boolean> = async () => true
+  chainReadiness: () => Promise<ChainReadiness> = async () => healthyChainReadiness,
+  protocolStats: () => Promise<ProtocolStats> = async () => emptyProtocolStats
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
   await app.register(cors, {
@@ -69,10 +111,45 @@ export async function buildServer(
 
   app.get('/health', async () => ({ status: 'ok', service: 'attestlock-worker' }));
   app.get('/ready', async (_request, reply) => {
-    const ready = await Promise.all([store.ping(), chainReadiness()])
-      .then((checks) => checks.every(Boolean))
-      .catch(() => false);
-    return reply.code(ready ? 200 : 503).send({ status: ready ? 'ready' : 'unavailable' });
+    const database = await store.ping().catch(() => false);
+    const chain = await chainReadiness().catch(() => ({
+      checks: Object.fromEntries(
+        Object.keys(healthyChainReadiness.checks).map((key) => [key, false])
+      ) as ChainReadiness['checks'],
+      latestAttestedHeight: null,
+      attestationAdvancedAt: null,
+      proofBuilderAttestedHeight: null,
+    }));
+    const checks: ReadinessChecks = { database, ...chain.checks };
+    const ready = Object.values(checks).every(Boolean);
+    const report: ReadinessReport = {
+      schemaVersion: 2,
+      status: ready ? 'ready' : 'unavailable',
+      version: config.RAILWAY_GIT_COMMIT_SHA,
+      checks,
+      latestAttestedHeight: chain.latestAttestedHeight,
+      attestationAdvancedAt: chain.attestationAdvancedAt,
+      proofBuilderAttestedHeight: chain.proofBuilderAttestedHeight,
+    };
+    return reply.code(ready ? 200 : 503).send(report);
+  });
+
+  let statsCache: { expiresAt: number; value: PublicStats } | null = null;
+  app.get('/api/stats', async () => {
+    if (statsCache && statsCache.expiresAt > Date.now()) return statsCache.value;
+    const [counts, chain, protocol] = await Promise.all([
+      store.getPublicStats(),
+      chainReadiness().catch(() => ({ ...healthyChainReadiness, latestAttestedHeight: null })),
+      protocolStats().catch(() => emptyProtocolStats),
+    ]);
+    const value: PublicStats = {
+      generatedAt: new Date().toISOString(),
+      ...counts,
+      ...protocol,
+      latestAttestedHeight: chain.latestAttestedHeight,
+    };
+    statsCache = { expiresAt: Date.now() + 60_000, value };
+    return value;
   });
 
   app.post('/api/challenges', async (request, reply) => {

@@ -5,7 +5,15 @@ import {
   lockVaultAbi,
   type Job,
 } from '@attestlock/shared';
-import { Interface, getAddress, getBytes, isAddress, type JsonRpcProvider } from 'ethers';
+import {
+  Interface,
+  ZeroAddress,
+  ZeroHash,
+  getAddress,
+  getBytes,
+  isAddress,
+  type JsonRpcProvider,
+} from 'ethers';
 import { RefusedError, TransientError, errorMessage } from './errors.js';
 
 export interface SourceLockFact {
@@ -26,16 +34,20 @@ export class SourceLockValidator {
 
   async validate(job: Job): Promise<SourceLockFact> {
     let receipt;
+    let transaction;
     try {
-      receipt = await this.provider.getTransactionReceipt(job.txHash);
+      [receipt, transaction] = await Promise.all([
+        this.provider.getTransactionReceipt(job.txHash),
+        this.provider.getTransaction(job.txHash),
+      ]);
     } catch (error) {
       throw new TransientError('SOURCE_RPC_UNAVAILABLE', errorMessage(error));
     }
-    if (!receipt) {
+    if (!receipt || !transaction) {
       throw new RefusedError('SOURCE_TX_NOT_FOUND', 'The source transaction does not exist or is not mined.');
     }
     if (receipt.status !== 1) throw new RefusedError('SOURCE_TX_FAILED', 'The source transaction reverted.');
-    if (!receipt.to || getAddress(receipt.to) !== this.sourceVault) {
+    if (!transaction.to || !receipt.to || getAddress(transaction.to) !== this.sourceVault) {
       throw new RefusedError(
         'WRONG_SOURCE_CONTRACT',
         'The transaction did not call the registered LockVault.'
@@ -81,8 +93,14 @@ export class SourceLockValidator {
     const amount = BigInt(parsed.args.amount);
     const unlockAt = Number(parsed.args.unlockAt);
     const lockId = String(parsed.args.lockId);
+    if (borrower === ZeroAddress || lockId === ZeroHash) {
+      throw new RefusedError('INVALID_LOCK_IDENTITY', 'The lock identifier or borrower is zero.');
+    }
     if (!isAddress(borrower) || borrower !== getAddress(job.borrower)) {
       throw new RefusedError('BORROWER_MISMATCH', 'The signed wallet is not the collateral borrower.');
+    }
+    if (getAddress(transaction.from) !== borrower) {
+      throw new RefusedError('SOURCE_SENDER_MISMATCH', 'The source transaction sender is not the borrower.');
     }
     if (token !== this.sourceToken) {
       throw new RefusedError('UNSUPPORTED_TOKEN', 'The lock uses an unsupported source token.');

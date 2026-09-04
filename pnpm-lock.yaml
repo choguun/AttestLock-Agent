@@ -20,9 +20,15 @@ importers:
         specifier: ^6.17.0
         version: 6.17.0
     devDependencies:
+      '@axe-core/playwright':
+        specifier: 4.10.2
+        version: 4.10.2(playwright-core@1.55.1)
       '@eslint/js':
         specifier: ^9.35.0
         version: 9.39.5
+      '@playwright/test':
+        specifier: 1.55.1
+        version: 1.55.1
       eslint:
         specifier: ^9.35.0
         version: 9.39.5(supports-color@7.2.0)
@@ -165,6 +171,14 @@ packages:
       {
         integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==,
       }
+
+  '@axe-core/playwright@4.10.2':
+    resolution:
+      {
+        integrity: sha512-6/b5BJjG6hDaRNtgzLIfKr5DfwyiLHO4+ByTLB0cJgWSM8Ll7KqtdblIS6bEkwSF642/Ex91vNqIl3GLXGlceg==,
+      }
+    peerDependencies:
+      playwright-core: '>= 1.0.0'
 
   '@babel/code-frame@7.29.7':
     resolution:
@@ -852,6 +866,14 @@ packages:
         integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==,
       }
 
+  '@playwright/test@1.55.1':
+    resolution:
+      {
+        integrity: sha512-IVAh/nOJaw6W9g+RJVlIQJ6gSiER+ae6mKQ5CX1bERzQgbC1VSeBlwdvczT7pxb0GWiyrxH4TGKbMfDb4Sq/ig==,
+      }
+    engines: { node: '>=18' }
+    hasBin: true
+
   '@rolldown/pluginutils@1.0.0-rc.3':
     resolution:
       {
@@ -1465,6 +1487,13 @@ packages:
         integrity: sha512-g2tQ7LE7oOSqDfwEm3M+ZCMTJc7KiZCdJ4UwyZJb5ckTKyYu50OYmvv0mCFXPuYXoM4zkSt8zM9XQ9KCvxA74A==,
       }
 
+  axe-core@4.10.3:
+    resolution:
+      {
+        integrity: sha512-Xm7bpRXnDSX2YE2YFfBk2FnF0ep6tmG7xPh8iHee8MIcrgq762Nkce856dYtJYLkuIoYZvGfTs/PbZhideTcEg==,
+      }
+    engines: { node: '>=4' }
+
   axios@1.20.0:
     resolution:
       {
@@ -2029,6 +2058,14 @@ packages:
       }
     engines: { node: '>= 6' }
 
+  fsevents@2.3.2:
+    resolution:
+      {
+        integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==,
+      }
+    engines: { node: ^8.16.0 || ^10.6.0 || >=11.0.0 }
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution:
       {
@@ -2536,6 +2573,22 @@ packages:
       {
         integrity: sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==,
       }
+    hasBin: true
+
+  playwright-core@1.55.1:
+    resolution:
+      {
+        integrity: sha512-Z6Mh9mkwX+zxSlHqdr5AOcJnfp+xUWLCt9uKV18fhzA8eyxUd8NUWzAjxUh55RZKSYwDGX0cfaySdhZJGMoJ+w==,
+      }
+    engines: { node: '>=18' }
+    hasBin: true
+
+  playwright@1.55.1:
+    resolution:
+      {
+        integrity: sha512-cJW4Xd/G3v5ovXtJJ52MAOclqeac9S/aGGgRzLabuF8TnIb6xHvMzKIa6JmrRzUkeXJgfL1MhukP0NK6l39h3A==,
+      }
+    engines: { node: '>=18' }
     hasBin: true
 
   postcss@8.5.26:
@@ -3203,6 +3256,11 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
+  '@axe-core/playwright@4.10.2(playwright-core@1.55.1)':
+    dependencies:
+      axe-core: 4.10.3
+      playwright-core: 1.55.1
+
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -3570,6 +3628,10 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
+  '@playwright/test@1.55.1':
+    dependencies:
+      playwright: 1.55.1
+
   '@rolldown/pluginutils@1.0.0-rc.3': {}
 
   '@rollup/rollup-android-arm-eabi@4.63.1':
@@ -3935,6 +3997,8 @@ snapshots:
     dependencies:
       '@fastify/error': 4.2.0
       fastq: 1.20.3
+
+  axe-core@4.10.3: {}
 
   axios@1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
@@ -4304,6 +4368,9 @@ snapshots:
       hasown: 2.0.4
       mime-types: 2.1.35
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -4578,6 +4645,14 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 4.2.0
+
+  playwright-core@1.55.1: {}
+
+  playwright@1.55.1:
+    dependencies:
+      playwright-core: 1.55.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   postcss@8.5.26:
     dependencies:

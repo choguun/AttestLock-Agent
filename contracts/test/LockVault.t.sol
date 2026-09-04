@@ -19,9 +19,15 @@ contract LockVaultTest is Test {
     }
 
     function testFaucetCanOnlyBeClaimedOnce() external {
+        assertEq(token.decimals(), 6);
         vm.prank(borrower);
         vm.expectRevert(MockUSDC.FaucetAlreadyClaimed.selector);
         token.faucet();
+    }
+
+    function testVaultConstructorRejectsZeroToken() external {
+        vm.expectRevert(bytes("token=0"));
+        new LockVault(address(0));
     }
 
     function testLockEscrowsAndWithdrawsAfterExpiry() external {

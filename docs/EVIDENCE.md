@@ -4,14 +4,16 @@ This checklist prevents build output or mocked fixtures from being presented as 
 
 ## Repository verification snapshot
 
-Verified locally on `2026-09-03T16:39:00Z` from branch `codex/hackathon-completion`:
+Verified locally on `2026-09-04T17:01:43Z` from branch `codex/hackathon-90-plus` at implementation commit `c1e7f20ad51d93f5e3ad931cf34fe14a2343fe21`:
 
-- `pnpm verify` passed with PostgreSQL enabled: 49 tests, zero failures, zero skips.
-- `pnpm audit --prod` reported no known vulnerabilities.
+- `pnpm verify` passed with PostgreSQL enabled: 77 shared, worker, web, and Foundry tests; zero failures and zero skips. The six PostgreSQL cases ran against a disposable local database.
+- Playwright passed two Chromium paths: preview fail-closed plus the mocked wallet lock, authorization, SSE, refresh recovery, profile, borrow, repay, refusal, explorer-link, and accessibility journey.
+- Measured Foundry coverage is 99.33% lines, 99.46% statements, 87.50% branches, and 100% functions, exceeding the enforced 95/93/85/90 floors.
 - `forge lint --root contracts` completed with only the expected timestamp-policy warnings for maturity and expiry checks.
-- The production build fails closed unless `VITE_PREVIEW_MODE=true` or the live API and deployed contract addresses are present.
-- Browser QA passed at 1440×900 and 390×844 with no horizontal overflow or console errors.
-- The six-slide PPTX passed template fidelity and overflow checks; the six-page PDF was rendered and inspected page by page.
+- The production build fails closed unless `VITE_PREVIEW_MODE=true` or a public HTTPS API, all five nonzero contract addresses, and a nonzero known refusal transaction are present.
+- `pnpm audit --prod --audit-level high --ignore-registry-errors` reported no known vulnerabilities.
+- Node syntax checks passed for the deployment-manifest, live-evidence, and production-smoke commands. GitHub CI remains the authoritative full-history secret and Markdown-link gate because `gitleaks` and `lychee` are not installed in this local environment.
+- The six-slide PPTX passed package, template-fidelity, heading-fit, layout, and re-import checks; the six-page PDF was rendered and visually inspected.
 
 This snapshot is repository evidence, not live-chain proof.
 
@@ -41,36 +43,44 @@ This snapshot is repository evidence, not live-chain proof.
 - [ ] Repeating the successful query reverts.
 - [ ] Reusing the source lock through another proof reverts.
 
+## Gate 4 — public judge package
+
+- [ ] Hosted live web, worker `/health`, schema-v2 `/ready`, `/api/stats`, and scheduled smoke pass.
+- [ ] Public 90-second demo plays without authentication.
+- [ ] Public uncut technical appendix plays without authentication.
+- [ ] Every repository, explorer, deck, video, and hosted URL opens from a logged-out browser.
+
 ## Evidence table
 
-| Field                   | Value                                                                             |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| Public repository       | https://github.com/choguun/AttestLock-Agent                                       |
-| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                        |
-| Release candidate       | `c19283e824a5bc9848fdded9ca89d578a8a38430`                                        |
-| Completion branch/PR    | `codex/hackathon-completion` / https://github.com/choguun/AttestLock-Agent/pull/1 |
-| Sepolia deployment      | Pending                                                                           |
-| Creditcoin deployment   | Pending                                                                           |
-| Sepolia lock tx         | Pending                                                                           |
-| Attested block/time     | Pending                                                                           |
-| Sanitized proof fixture | Pending                                                                           |
-| Creditcoin proof tx     | Pending                                                                           |
-| Creditcoin borrow tx    | Pending                                                                           |
-| Junk refusal job        | Pending                                                                           |
-| Hosted web URL          | https://attestlock-web-production.up.railway.app                                  |
-| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                    |
-| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                         |
-| Worker health URL       | Pending — worker has no deployment while chain credentials are absent             |
-| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023              |
-| Completion CI run       | https://github.com/choguun/AttestLock-Agent/actions/runs/33781542310              |
+| Field                   | Value                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| Public repository       | https://github.com/choguun/AttestLock-Agent                                    |
+| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                     |
+| Release candidate       | `3b1987c5f72af7839f93ed69ee1c05f64940674f`                                     |
+| Completion branch/PR    | `codex/hackathon-90-plus` / https://github.com/choguun/AttestLock-Agent/pull/2 |
+| Sepolia deployment      | Pending                                                                        |
+| Creditcoin deployment   | Pending                                                                        |
+| Sepolia lock tx         | Pending                                                                        |
+| Attested block/time     | Pending                                                                        |
+| Sanitized proof fixture | Pending                                                                        |
+| Creditcoin proof tx     | Pending                                                                        |
+| Creditcoin borrow tx    | Pending                                                                        |
+| Junk refusal job        | Pending                                                                        |
+| Hosted web URL          | https://attestlock-web-production.up.railway.app                               |
+| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                 |
+| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                      |
+| Worker health URL       | Reserved: `attestlock-worker-production.up.railway.app`; no deployment         |
+| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023           |
+| Merged-main CI run      | https://github.com/choguun/AttestLock-Agent/actions/runs/33825126459           |
+| Evidence-complete CI    | https://github.com/choguun/AttestLock-Agent/actions/runs/33899048858           |
 
 ## Railway observation
 
-Observed again after deployment at `2026-09-03T16:57:09Z`:
+Observed again with the Railway CLI at `2026-09-04T16:31:00Z`:
 
 - `attestlock-web` deployment `0f514b7b-2ada-47f6-9868-bf05ae323756` passed its `/` health check in Singapore; the page and public logo both returned HTTP 200;
 - private PostgreSQL is running with a persistent volume;
-- `attestlock-worker` has no active deployment and no public domain;
+- `attestlock-worker` has a reserved public domain but no active deployment and no repository source;
 - the worker is intentionally not connected/deployed until Sepolia RPC, Creditcoin RPC, proof-builder URL, funded relayer key, source addresses, destination address, and deployment block are available.
 
 Connecting the worker early would create a knowingly failed public deployment and would not satisfy the live gate.

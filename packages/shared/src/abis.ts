@@ -15,7 +15,10 @@ export const lockVaultAbi = [
 
 export const attestLockAscAbi = [
   'function verifyLockAndOpenLine(uint64 chainKey,uint64 blockHeight,bytes encodedTransaction,bytes32 merkleRoot,tuple(bytes32 hash,bool isLeft)[] siblings,bytes32 lowerEndpointDigest,bytes32[] continuityRoots) returns (bool)',
+  'function verifier() view returns (address)',
   'function pool() view returns (address)',
+  'function sourceVault() view returns (address)',
+  'function sourceToken() view returns (address)',
   'function processedQueries(bytes32) view returns (bool)',
   'function usedLocks(bytes32) view returns (bool)',
   'event LockVerifiedAndLineOpened(bytes32 indexed queryId,bytes32 indexed lockId,address indexed borrower,uint256 collateralAmount,uint256 creditLimit,uint64 maturity,uint64 collateralUnlockAt)',
@@ -23,10 +26,13 @@ export const attestLockAscAbi = [
   'error QueryAlreadyProcessed()',
   'error ProofVerificationFailed()',
   'error UnsupportedTransactionType()',
+  'error WrongSourceTransaction()',
   'error SourceTransactionFailed()',
   'error MissingLockEvent()',
   'error AmbiguousLockEvents()',
   'error MalformedLockEvent()',
+  'error InvalidLockIdentity()',
+  'error BorrowerMismatch()',
   'error UnsupportedToken()',
   'error CollateralBelowMinimum()',
   'error InsufficientRemainingLock()',
@@ -34,11 +40,16 @@ export const attestLockAscAbi = [
 ] as const;
 
 export const creditPoolAbi = [
+  'function asset() view returns (address)',
+  'function asc() view returns (address)',
   'function lines(bytes32) view returns (address borrower,uint256 limit,uint256 debt,uint64 maturity,uint256 collateralAmount,uint64 collateralUnlockAt,bytes32 queryId)',
+  'function borrowerProfiles(address) view returns (uint256 lineCount,uint256 totalCreditOpened,uint256 totalBorrowed,uint256 totalRepaid,uint256 outstandingDebt)',
   'function borrow(bytes32 lockId,uint256 amount)',
   'function repay(bytes32 lockId,uint256 amount) returns (uint256 paid)',
   'event CreditLineOpened(bytes32 indexed lockId,address indexed borrower,uint256 limit,uint64 maturity,bytes32 indexed queryId)',
   'event Borrowed(bytes32 indexed lockId,address indexed borrower,uint256 amount,uint256 debt)',
+  'event Repaid(bytes32 indexed lockId,address indexed payer,uint256 amount,uint256 debt)',
+  'event BorrowerProfileUpdated(address indexed borrower,uint256 lineCount,uint256 totalCreditOpened,uint256 totalBorrowed,uint256 totalRepaid,uint256 outstandingDebt)',
 ] as const;
 
 export const mockUsdAbi = [

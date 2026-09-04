@@ -36,7 +36,16 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
         bytes32 queryId;
     }
 
+    struct BorrowerProfile {
+        uint256 lineCount;
+        uint256 totalCreditOpened;
+        uint256 totalBorrowed;
+        uint256 totalRepaid;
+        uint256 outstandingDebt;
+    }
+
     mapping(bytes32 lockId => CreditLine line) public lines;
+    mapping(address borrower => BorrowerProfile profile) public borrowerProfiles;
 
     event ASCConfigured(address indexed asc);
     event CreditLineOpened(
@@ -48,6 +57,14 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
     );
     event Borrowed(bytes32 indexed lockId, address indexed borrower, uint256 amount, uint256 debt);
     event Repaid(bytes32 indexed lockId, address indexed payer, uint256 amount, uint256 debt);
+    event BorrowerProfileUpdated(
+        address indexed borrower,
+        uint256 lineCount,
+        uint256 totalCreditOpened,
+        uint256 totalBorrowed,
+        uint256 totalRepaid,
+        uint256 outstandingDebt
+    );
 
     error ASCAlreadyConfigured();
     error NotASC();
@@ -85,10 +102,13 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
         uint64 collateralUnlockAt,
         bytes32 queryId
     ) external onlyASC {
-        if (
-            lockId == bytes32(0) || borrower == address(0) || limit == 0 || maturity <= block.timestamp
-                || collateralUnlockAt <= maturity
-        ) revert InvalidLine();
+        if (lockId == bytes32(0)) revert InvalidLine();
+        if (borrower == address(0)) revert InvalidLine();
+        if (limit == 0) revert InvalidLine();
+        if (maturity <= block.timestamp) revert InvalidLine();
+        if (collateralAmount == 0) revert InvalidLine();
+        if (collateralUnlockAt <= maturity) revert InvalidLine();
+        if (queryId == bytes32(0)) revert InvalidLine();
         if (lines[lockId].borrower != address(0)) revert LineAlreadyExists();
 
         lines[lockId] = CreditLine({
@@ -100,7 +120,11 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
             collateralUnlockAt: collateralUnlockAt,
             queryId: queryId
         });
+        BorrowerProfile storage profile = borrowerProfiles[borrower];
+        profile.lineCount += 1;
+        profile.totalCreditOpened += limit;
         emit CreditLineOpened(lockId, borrower, limit, maturity, queryId);
+        _emitProfile(borrower, profile);
     }
 
     function borrow(bytes32 lockId, uint256 amount) external nonReentrant {
@@ -112,7 +136,11 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
 
         line.debt += amount;
         asset.safeTransfer(msg.sender, amount);
+        BorrowerProfile storage profile = borrowerProfiles[msg.sender];
+        profile.totalBorrowed += amount;
+        profile.outstandingDebt += amount;
         emit Borrowed(lockId, msg.sender, amount, line.debt);
+        _emitProfile(msg.sender, profile);
     }
 
     function repay(bytes32 lockId, uint256 amount) external nonReentrant returns (uint256 paid) {
@@ -124,12 +152,26 @@ contract CreditPool is ICreditPool, Ownable, ReentrancyGuard {
         paid = amount > line.debt ? line.debt : amount;
         line.debt -= paid;
         asset.safeTransferFrom(msg.sender, address(this), paid);
+        BorrowerProfile storage profile = borrowerProfiles[line.borrower];
+        profile.totalRepaid += paid;
+        profile.outstandingDebt -= paid;
         emit Repaid(lockId, msg.sender, paid, line.debt);
+        _emitProfile(line.borrower, profile);
     }
 
     function available(bytes32 lockId) external view returns (uint256) {
         CreditLine storage line = lines[lockId];
         return line.limit > line.debt ? line.limit - line.debt : 0;
     }
-}
 
+    function _emitProfile(address borrower, BorrowerProfile storage profile) internal {
+        emit BorrowerProfileUpdated(
+            borrower,
+            profile.lineCount,
+            profile.totalCreditOpened,
+            profile.totalBorrowed,
+            profile.totalRepaid,
+            profile.outstandingDebt
+        );
+    }
+}

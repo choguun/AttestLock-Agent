@@ -61,6 +61,13 @@ contract AttestLockASCTest is Test {
         assertTrue(queryId != bytes32(0));
         assertTrue(asc.usedLocks(lockId));
         assertTrue(asc.processedQueries(queryId));
+        (uint256 lineCount, uint256 creditOpened, uint256 borrowed, uint256 repaid, uint256 outstanding) =
+            pool.borrowerProfiles(borrower);
+        assertEq(lineCount, 1);
+        assertEq(creditOpened, 100e6);
+        assertEq(borrowed, 0);
+        assertEq(repaid, 0);
+        assertEq(outstanding, 0);
     }
 
     function testQueryIdPackingMatchesOfficialASCBaseLayout() external {
@@ -80,6 +87,9 @@ contract AttestLockASCTest is Test {
         (address recordedBorrower,,,,,,) = pool.lines(lockId);
         assertEq(recordedBorrower, address(0));
         assertFalse(asc.usedLocks(lockId));
+        (uint256 lineCount, uint256 creditOpened,,,) = pool.borrowerProfiles(borrower);
+        assertEq(lineCount, 0);
+        assertEq(creditOpened, 0);
     }
 
     function testRejectsFailedReceipt() external {
@@ -88,12 +98,70 @@ contract AttestLockASCTest is Test {
         _mockVerifier(encodedTx, true, 0);
         vm.expectRevert(AttestLockASC.SourceTransactionFailed.selector);
         _execute(encodedTx, 1);
+        _assertRejectedState(lockId, borrower);
+    }
+
+    function testRejectsUnsupportedTransactionType() external {
+        bytes[] memory chunks = new bytes[](0);
+        bytes memory encodedTx = abi.encode(type(uint8).max, chunks);
+        _mockVerifier(encodedTx, true, 0);
+        vm.expectRevert(AttestLockASC.UnsupportedTransactionType.selector);
+        _execute(encodedTx, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsWrongChainBeforeCallingVerifier() external {
         bytes memory encodedTx = _validEncodedTx();
         vm.expectRevert(AttestLockASC.UnsupportedChain.selector);
         _execute(encodedTx, 3);
+        _assertRejectedState(lockId, borrower);
+    }
+
+    function testRejectsWrongSourceTransactionAndBorrower() external {
+        EvmV1Decoder.LogEntryTuple[] memory logs = new EvmV1Decoder.LogEntryTuple[](1);
+        logs[0] = _validLog(lockId);
+
+        bytes memory wrongDestination =
+            _encodedTxWithCommonAndLogs(borrower, false, makeAddr("wrongDestination"), 1, logs);
+        _mockVerifier(wrongDestination, true, 0);
+        vm.expectRevert(AttestLockASC.WrongSourceTransaction.selector);
+        _execute(wrongDestination, 1);
+        _assertRejectedState(lockId, borrower);
+
+        vm.clearMockedCalls();
+        bytes memory contractCreation = _encodedTxWithCommonAndLogs(borrower, true, address(0), 1, logs);
+        _mockVerifier(contractCreation, true, 0);
+        vm.expectRevert(AttestLockASC.WrongSourceTransaction.selector);
+        _execute(contractCreation, 1);
+        _assertRejectedState(lockId, borrower);
+
+        vm.clearMockedCalls();
+        bytes memory wrongBorrower =
+            _encodedTxWithCommonAndLogs(makeAddr("differentSender"), false, sourceVault, 1, logs);
+        _mockVerifier(wrongBorrower, true, 0);
+        vm.expectRevert(AttestLockASC.BorrowerMismatch.selector);
+        _execute(wrongBorrower, 1);
+        _assertRejectedState(lockId, borrower);
+    }
+
+    function testRejectsZeroLockAndBorrowerIdentities() external {
+        bytes memory zeroLock = _encodedLockTx(
+            1, sourceVault, sourceToken, 200e6, uint64(block.timestamp + 14 days), bytes32(0)
+        );
+        _mockVerifier(zeroLock, true, 0);
+        vm.expectRevert(AttestLockASC.InvalidLockIdentity.selector);
+        _execute(zeroLock, 1);
+
+        vm.clearMockedCalls();
+        EvmV1Decoder.LogEntryTuple[] memory logs = new EvmV1Decoder.LogEntryTuple[](1);
+        logs[0] = _lockLog(
+            lockId, address(0), sourceToken, sourceVault, 200e6, uint64(block.timestamp + 14 days)
+        );
+        bytes memory zeroBorrower = _encodedTxWithCommonAndLogs(address(0), false, sourceVault, 1, logs);
+        _mockVerifier(zeroBorrower, true, 0);
+        vm.expectRevert(AttestLockASC.InvalidLockIdentity.selector);
+        _execute(zeroBorrower, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsWrongVaultAndWrongToken() external {
@@ -111,6 +179,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(wrongToken, true, 0);
         vm.expectRevert(AttestLockASC.UnsupportedToken.selector);
         _execute(wrongToken, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsSmallCollateralAndShortRemainingTerm() external {
@@ -127,6 +196,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(shortTerm, true, 0);
         vm.expectRevert(AttestLockASC.InsufficientRemainingLock.selector);
         _execute(shortTerm, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testRejectsQueryReplayAndLockReplay() external {
@@ -141,6 +211,15 @@ contract AttestLockASCTest is Test {
         _mockVerifier(encodedTx, true, 1);
         vm.expectRevert(AttestLockASC.LockAlreadyUsed.selector);
         _execute(encodedTx, 1);
+
+        (address recordedBorrower, uint256 limit, uint256 debt,,,, bytes32 recordedQueryId) =
+            pool.lines(lockId);
+        assertEq(recordedBorrower, borrower);
+        assertEq(limit, 100e6);
+        assertEq(debt, 0);
+        assertTrue(asc.processedQueries(recordedQueryId));
+        assertTrue(asc.usedLocks(lockId));
+        _assertProfile(1, 100e6, 0, 0, 0);
     }
 
     function testRejectsMalformedAndAmbiguousLockLogs() external {
@@ -167,6 +246,7 @@ contract AttestLockASCTest is Test {
         _mockVerifier(duplicate, true, 0);
         vm.expectRevert(AttestLockASC.AmbiguousLockEvents.selector);
         _execute(duplicate, 1);
+        _assertRejectedState(lockId, borrower);
     }
 
     function testPoolBorrowRepayAndMaturityRules() external {
@@ -175,22 +255,23 @@ contract AttestLockASCTest is Test {
         _execute(encodedTx, 1);
 
         vm.prank(borrower);
-        pool.borrow(lockId, 50e6);
-        assertEq(asset.balanceOf(borrower), 50e6);
+        pool.borrow(lockId, 100e6);
+        assertEq(asset.balanceOf(borrower), 100e6);
         (, uint256 limit, uint256 debt, uint64 maturity,,,,) = _lineParts(lockId);
         assertEq(limit, 100e6);
-        assertEq(debt, 50e6);
+        assertEq(debt, 100e6);
+        assertEq(pool.available(lockId), 0);
 
         vm.prank(borrower);
         vm.expectRevert(CreditPool.LimitExceeded.selector);
-        pool.borrow(lockId, 51e6);
+        pool.borrow(lockId, 1);
 
         vm.startPrank(borrower);
         asset.approve(address(pool), 20e6);
         pool.repay(lockId, 20e6);
         vm.stopPrank();
         (,, debt,,,,,) = _lineParts(lockId);
-        assertEq(debt, 30e6);
+        assertEq(debt, 80e6);
 
         vm.warp(maturity);
         vm.prank(borrower);
@@ -198,11 +279,12 @@ contract AttestLockASCTest is Test {
         pool.borrow(lockId, 1);
 
         vm.startPrank(borrower);
-        asset.approve(address(pool), 30e6);
-        pool.repay(lockId, 30e6);
+        asset.approve(address(pool), 80e6);
+        pool.repay(lockId, 80e6);
         vm.stopPrank();
         (,, debt,,,,,) = _lineParts(lockId);
         assertEq(debt, 0);
+        _assertProfile(1, 100e6, 100e6, 100e6, 0);
     }
 
     function testPoolOpenLineOnlyASC() external {
@@ -250,6 +332,46 @@ contract AttestLockASCTest is Test {
             uint64(block.timestamp + 14 days),
             bytes32(uint256(1))
         );
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            0,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 7 days),
+            bytes32(uint256(1))
+        );
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(0)
+        );
 
         pool.openLine(
             lockId,
@@ -273,6 +395,60 @@ contract AttestLockASCTest is Test {
         vm.stopPrank();
     }
 
+    function testPoolConfigurationAndConstructorsFailClosed() external {
+        vm.expectRevert(bytes("asset=0"));
+        new CreditPool(address(0), address(this));
+
+        CreditPool configurable = new CreditPool(address(asset), address(this));
+        vm.expectRevert(bytes("asc=0"));
+        configurable.setASC(address(0));
+        configurable.setASC(address(asc));
+        vm.expectRevert(CreditPool.ASCAlreadyConfigured.selector);
+        configurable.setASC(address(asc));
+
+        vm.expectRevert(bytes("address=0"));
+        new AttestLockASC(address(0), sourceVault, sourceToken);
+        vm.expectRevert(bytes("address=0"));
+        new AttestLockASC(address(pool), address(0), sourceToken);
+        vm.expectRevert(bytes("address=0"));
+        new AttestLockASC(address(pool), sourceVault, address(0));
+    }
+
+    function testPoolRejectsInvalidBorrowAndRepayWithoutChangingAccounting() external {
+        bytes memory encodedTx = _validEncodedTx();
+        _mockVerifier(encodedTx, true, 0);
+        _execute(encodedTx, 1);
+
+        vm.prank(makeAddr("attacker"));
+        vm.expectRevert(CreditPool.NotBorrower.selector);
+        pool.borrow(lockId, 1);
+        vm.prank(borrower);
+        vm.expectRevert(CreditPool.InvalidAmount.selector);
+        pool.borrow(lockId, 0);
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.repay(keccak256("unknown"), 1);
+        assertEq(pool.available(keccak256("unknown")), 0);
+        vm.expectRevert(CreditPool.NoDebt.selector);
+        pool.repay(lockId, 1);
+
+        vm.prank(borrower);
+        pool.borrow(lockId, 10e6);
+        vm.expectRevert(CreditPool.InvalidAmount.selector);
+        pool.repay(lockId, 0);
+
+        (,, uint256 debt,,,,) = pool.lines(lockId);
+        assertEq(debt, 10e6);
+        assertEq(pool.available(lockId), 90e6);
+        _assertProfile(1, 100e6, 10e6, 0, 10e6);
+    }
+
+    function testMockUsdMintIsOwnerOnlyAndUsesSixDecimals() external {
+        assertEq(asset.decimals(), 6);
+        vm.prank(makeAddr("notOwner"));
+        vm.expectRevert();
+        asset.mint(borrower, 1);
+    }
+
     function testThirdPartyCanRepayAfterMaturity() external {
         bytes memory encodedTx = _validEncodedTx();
         _mockVerifier(encodedTx, true, 0);
@@ -289,6 +465,7 @@ contract AttestLockASCTest is Test {
         vm.stopPrank();
         (,, uint256 debt,,,,) = pool.lines(lockId);
         assertEq(debt, 0);
+        _assertProfile(1, 100e6, 20e6, 20e6, 0);
     }
 
     function testInsolventPoolCannotCreateDebt() external {
@@ -309,6 +486,9 @@ contract AttestLockASCTest is Test {
         emptyPool.borrow(lockId, 1e6);
         (,, uint256 debt,,,,) = emptyPool.lines(lockId);
         assertEq(debt, 0);
+        (,, uint256 borrowed,, uint256 outstanding) = emptyPool.borrowerProfiles(borrower);
+        assertEq(borrowed, 0);
+        assertEq(outstanding, 0);
     }
 
     function testFuzzDebtNeverExceedsLimit(uint96 requested) external {
@@ -321,6 +501,49 @@ contract AttestLockASCTest is Test {
         pool.borrow(lockId, amount);
         (, uint256 limit, uint256 debt,,,,) = pool.lines(lockId);
         assertLe(debt, limit);
+        (,, uint256 totalBorrowed, uint256 totalRepaid, uint256 outstanding) = pool.borrowerProfiles(borrower);
+        assertEq(totalBorrowed - totalRepaid, outstanding);
+        assertEq(outstanding, debt);
+    }
+
+    function testBorrowerProfileAggregatesMultipleLinesAndCapsExcessRepayment() external {
+        bytes memory first = _validEncodedTx();
+        _mockVerifier(first, true, 0);
+        _execute(first, 1);
+
+        bytes32 secondLock = keccak256("lock-2");
+        bytes memory second = _encodedLockTx(
+            1, sourceVault, sourceToken, 300e6, uint64(block.timestamp + 14 days), secondLock
+        );
+        vm.clearMockedCalls();
+        _mockVerifier(second, true, 1);
+        _execute(second, 1);
+
+        vm.startPrank(borrower);
+        pool.borrow(lockId, 40e6);
+        pool.borrow(secondLock, 60e6);
+        asset.approve(address(pool), 200e6);
+        pool.repay(lockId, 100e6);
+        vm.stopPrank();
+
+        _assertProfile(2, 250e6, 100e6, 40e6, 60e6);
+    }
+
+    function _assertProfile(
+        uint256 expectedLines,
+        uint256 expectedCredit,
+        uint256 expectedBorrowed,
+        uint256 expectedRepaid,
+        uint256 expectedOutstanding
+    ) internal view {
+        (uint256 lines_, uint256 credit, uint256 borrowed, uint256 repaid, uint256 outstanding) =
+            pool.borrowerProfiles(borrower);
+        assertEq(lines_, expectedLines);
+        assertEq(credit, expectedCredit);
+        assertEq(borrowed, expectedBorrowed);
+        assertEq(repaid, expectedRepaid);
+        assertEq(outstanding, expectedOutstanding);
+        assertEq(borrowed - repaid, outstanding);
     }
 
     function _validEncodedTx() internal view returns (bytes memory) {
@@ -374,28 +597,33 @@ contract AttestLockASCTest is Test {
         bytes32 eventLockId
     ) internal view returns (bytes memory) {
         EvmV1Decoder.LogEntryTuple[] memory logs = new EvmV1Decoder.LogEntryTuple[](1);
-        bytes32[] memory topics = new bytes32[](4);
-        topics[0] = asc.LOCK_EVENT_SIGNATURE();
-        topics[1] = eventLockId;
-        topics[2] = bytes32(uint256(uint160(borrower)));
-        topics[3] = bytes32(uint256(uint160(token)));
-        logs[0] = EvmV1Decoder.LogEntryTuple({
-            address_: emitter, topics: topics, data: abi.encode(amount, unlockAt)
-        });
+        logs[0] = _lockLog(eventLockId, borrower, token, emitter, amount, unlockAt);
 
         return _encodedTxWithLogs(receiptStatus, logs);
     }
 
     function _validLog(bytes32 eventLockId) internal view returns (EvmV1Decoder.LogEntryTuple memory entry) {
+        return
+            _lockLog(
+                eventLockId, borrower, sourceToken, sourceVault, 200e6, uint64(block.timestamp + 14 days)
+            );
+    }
+
+    function _lockLog(
+        bytes32 eventLockId,
+        address eventBorrower,
+        address token,
+        address emitter,
+        uint256 amount,
+        uint64 unlockAt
+    ) internal view returns (EvmV1Decoder.LogEntryTuple memory entry) {
         bytes32[] memory topics = new bytes32[](4);
         topics[0] = asc.LOCK_EVENT_SIGNATURE();
         topics[1] = eventLockId;
-        topics[2] = bytes32(uint256(uint160(borrower)));
-        topics[3] = bytes32(uint256(uint160(sourceToken)));
+        topics[2] = bytes32(uint256(uint160(eventBorrower)));
+        topics[3] = bytes32(uint256(uint160(token)));
         entry = EvmV1Decoder.LogEntryTuple({
-            address_: sourceVault,
-            topics: topics,
-            data: abi.encode(uint256(200e6), uint64(block.timestamp + 14 days))
+            address_: emitter, topics: topics, data: abi.encode(amount, unlockAt)
         });
     }
 
@@ -404,12 +632,36 @@ contract AttestLockASCTest is Test {
         view
         returns (bytes memory)
     {
+        return _encodedTxWithCommonAndLogs(borrower, false, sourceVault, receiptStatus, logs);
+    }
+
+    function _encodedTxWithCommonAndLogs(
+        address sender,
+        bool toIsNull,
+        address destination,
+        uint8 receiptStatus,
+        EvmV1Decoder.LogEntryTuple[] memory logs
+    ) internal pure returns (bytes memory) {
         bytes[] memory chunks = new bytes[](3);
         chunks[0] =
-            abi.encode(uint64(1), uint64(100_000), borrower, false, sourceVault, uint256(0), bytes(""));
+            abi.encode(uint64(1), uint64(100_000), sender, toIsNull, destination, uint256(0), bytes(""));
         chunks[1] = bytes("");
         chunks[2] = abi.encode(receiptStatus, uint64(50_000), logs, bytes(""));
         return abi.encode(uint8(2), chunks);
+    }
+
+    function _assertRejectedState(bytes32 id, address profileOwner) internal view {
+        (address recordedBorrower,,,,,,) = pool.lines(id);
+        assertEq(recordedBorrower, address(0));
+        assertFalse(asc.usedLocks(id));
+        assertFalse(asc.processedQueries(keccak256(abi.encodePacked(uint256(1), blockHeight, uint256(0)))));
+        (uint256 lines_, uint256 credit, uint256 borrowed, uint256 repaid, uint256 outstanding) =
+            pool.borrowerProfiles(profileOwner);
+        assertEq(lines_, 0);
+        assertEq(credit, 0);
+        assertEq(borrowed, 0);
+        assertEq(repaid, 0);
+        assertEq(outstanding, 0);
     }
 
     function _lineParts(bytes32 id)
