@@ -67,18 +67,18 @@ This snapshot is repository evidence, not live-chain proof.
 | Creditcoin borrow tx    | Pending                                                                        |
 | Junk refusal job        | Pending                                                                        |
 | Hosted web URL          | https://attestlock-web-production.up.railway.app                               |
-| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                 |
+| Hosted web deployment   | Railway `4695be59-8170-4620-9773-dcc039b38ba4`                                 |
 | Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                      |
 | Worker health URL       | Reserved: `attestlock-worker-production.up.railway.app`; no deployment         |
 | Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023           |
-| Merged-main CI run      | https://github.com/choguun/AttestLock-Agent/actions/runs/33825126459           |
+| Merged-main CI run      | https://github.com/choguun/AttestLock-Agent/actions/runs/33899486131           |
 | Evidence-complete CI    | https://github.com/choguun/AttestLock-Agent/actions/runs/33899048858           |
 
 ## Railway observation
 
-Observed again with the Railway CLI at `2026-09-04T16:31:00Z`:
+Observed again with the Railway CLI and public HTTP checks at `2026-09-04T17:19:55Z`:
 
-- `attestlock-web` deployment `0f514b7b-2ada-47f6-9868-bf05ae323756` passed its `/` health check in Singapore; the page and public logo both returned HTTP 200;
+- `attestlock-web` deployment `4695be59-8170-4620-9773-dcc039b38ba4` passed its `/` health check in Singapore; the page and public logo both returned HTTP 200, and its bundle identifies itself as a judge-safe preview rather than live testnets;
 - private PostgreSQL is running with a persistent volume;
 - `attestlock-worker` has a reserved public domain but no active deployment and no repository source;
 - the worker is intentionally not connected/deployed until Sepolia RPC, Creditcoin RPC, proof-builder URL, funded relayer key, source addresses, destination address, and deployment block are available.
