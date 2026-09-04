@@ -307,7 +307,7 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await expect(page.getByRole('status')).toContainText('Faucet transaction confirmed');
   await page.getByRole('button', { name: 'Approve 100' }).click();
   await page.getByRole('button', { name: 'Lock + prove' }).click();
-  await expect(page.getByText('VERIFIED')).toBeVisible();
+  await expect(page.getByText('VERIFIED', { exact: true })).toBeVisible();
   await expect(page.getByText('Attested height').locator('..')).toContainText('11,630,230');
   await expect(page.getByRole('link', { name: /Proof transaction/ })).toHaveAttribute(
     'href',
@@ -325,7 +325,7 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await expect(page.getByText('Current debt').locator('..')).toContainText('0.0 mUSD');
 
   await page.getByRole('button', { name: 'Prove it fails' }).click();
-  await expect(page.getByText('REFUSED')).toBeVisible();
+  await expect(page.getByText('REFUSED', { exact: true })).toBeVisible();
   await expect(page.getByText(/did not emit the required vault event/)).toBeVisible();
 
   const accessibility = await new AxeBuilder({ page }).analyze();
