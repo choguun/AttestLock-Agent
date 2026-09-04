@@ -2,6 +2,12 @@
   "chainId": 11155111,
   "network": "Sepolia",
   "deployedAt": null,
+  "commitSha": null,
+  "solcVersion": "0.8.28",
+  "dependencies": {
+    "openzeppelin": "5.4.0"
+  },
+  "deploymentBlock": null,
   "deployer": null,
   "contracts": {
     "MockUSDC": null,

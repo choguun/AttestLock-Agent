@@ -9,6 +9,8 @@ declare global {
     readonly VITE_LOCK_VAULT_ADDRESS?: string;
     readonly VITE_CREDIT_POOL_ADDRESS?: string;
     readonly VITE_MOCK_USD_ADDRESS?: string;
+    readonly VITE_INVALID_TX_HASH?: string;
+    readonly VITE_PREVIEW_MODE?: string;
   }
 
   interface ImportMeta {
@@ -16,7 +18,10 @@ declare global {
   }
 
   interface Window {
-    ethereum?: Eip1193Provider;
+    ethereum?: Eip1193Provider & {
+      on?: (event: string, listener: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
+    };
   }
 }
 

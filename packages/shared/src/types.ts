@@ -19,6 +19,7 @@ export interface JobEvidence {
   proofMerkleRoot?: string;
   continuityRootCount?: number;
   creditcoinTxHash?: string;
+  creditcoinSubmissionTxHash?: string;
   queryId?: string;
 }
 
@@ -39,8 +40,29 @@ export interface Job {
 export interface Challenge {
   nonce: string;
   wallet: string;
-  message: string;
+  txHash: string;
   expiresAt: string;
+  typedData: QueueAuthorizationTypedData;
+}
+
+export interface QueueAuthorizationTypedData {
+  domain: {
+    name: 'AttestLock Agent';
+    version: '1';
+    chainId: number;
+    verifyingContract: string;
+  };
+  types: {
+    QueueProofJob: Array<{ name: string; type: string }>;
+  };
+  primaryType: 'QueueProofJob';
+  message: {
+    wallet: string;
+    txHash: string;
+    nonce: string;
+    expiresAt: number;
+    apiOrigin: string;
+  };
 }
 
 export interface CreateJobRequest {

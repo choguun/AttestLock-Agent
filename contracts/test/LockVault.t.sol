@@ -64,6 +64,28 @@ contract LockVaultTest is Test {
         vm.stopPrank();
     }
 
+    function testWithdrawalRequiresKnownOwnedExpiredUnspentLock() external {
+        vm.expectRevert(LockVault.UnknownLock.selector);
+        vault.withdraw(bytes32(uint256(1)));
+
+        uint64 unlockAt = uint64(block.timestamp + 14 days);
+        vm.startPrank(borrower);
+        token.approve(address(vault), 100e6);
+        bytes32 lockId = vault.lock(100e6, unlockAt);
+        vm.stopPrank();
+
+        vm.prank(makeAddr("attacker"));
+        vm.expectRevert(LockVault.NotBorrower.selector);
+        vault.withdraw(lockId);
+
+        vm.warp(unlockAt);
+        vm.prank(borrower);
+        vault.withdraw(lockId);
+        vm.prank(borrower);
+        vm.expectRevert(LockVault.AlreadyWithdrawn.selector);
+        vault.withdraw(lockId);
+    }
+
     function testFuzzLockAmount(uint96 rawAmount) external {
         uint256 amount = bound(uint256(rawAmount), 100e6, token.FAUCET_AMOUNT());
         uint64 unlockAt = uint64(block.timestamp + 30 days);

@@ -12,15 +12,22 @@ const recovered = await store.recoverInterrupted();
 const events = new InMemoryJobEvents();
 const adapter = new AttestcoinChainAdapter(config);
 const processor = new JobProcessor(store, adapter, (job) => events.publish(job));
-const app = await buildServer(store, config, events);
+const app = await buildServer(store, config, events, () => adapter.isReady());
 if (recovered > 0) app.log.warn({ recovered }, 'Recovered interrupted proof jobs');
 
 const timer = setInterval(() => {
   void processor.runNext().catch((error) => app.log.error(error));
 }, 2_000);
+const cleanupTimer = setInterval(
+  () => {
+    void store.cleanupExpiredChallenges().catch((error) => app.log.error(error));
+  },
+  60 * 60 * 1_000
+);
 
 const shutdown = async () => {
   clearInterval(timer);
+  clearInterval(cleanupTimer);
   await app.close();
   await store.close();
 };

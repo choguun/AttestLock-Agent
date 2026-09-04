@@ -2,6 +2,13 @@
   "chainId": 102031,
   "network": "Creditcoin Testnet",
   "deployedAt": null,
+  "commitSha": null,
+  "solcVersion": "0.8.28",
+  "dependencies": {
+    "ascContracts": "0.2.1",
+    "openzeppelin": "5.4.0"
+  },
+  "deploymentBlock": null,
   "deployer": null,
   "contracts": {
     "MockUSD": null,

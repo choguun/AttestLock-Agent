@@ -1,25 +1,58 @@
 import {
-  COLLATERAL_BUFFER_SECONDS,
-  LINE_DURATION_SECONDS,
-  MIN_COLLATERAL,
+  CREDITCOIN_TESTNET_CHAIN_ID,
+  SEPOLIA_CHAIN_ID,
   SEPOLIA_CHAIN_KEY,
   attestLockAscAbi,
-  lockVaultAbi,
+  creditPoolAbi,
   type Job,
   type JobEvidence,
   type JobStatus,
 } from '@attestlock/shared';
 import { proofProvider } from '@gluwa/usc-sdk';
-import { Contract, Interface, JsonRpcProvider, Wallet, getAddress, isAddress } from 'ethers';
+import { Contract, JsonRpcProvider, Wallet } from 'ethers';
 import type { WorkerConfig } from './env.js';
 import { RefusedError, TransientError, errorMessage } from './errors.js';
 import type { ChainAdapter, ExecutionResult } from './processor.js';
+import { SourceLockValidator } from './source-validator.js';
 
-interface LockFact {
-  blockNumber: number;
-  lockId: string;
-  amount: bigint;
-  unlockAt: number;
+export function proofArguments(proof: proofProvider.ContinuityResponse) {
+  return [
+    proof.chainKey,
+    proof.headerNumber,
+    proof.txBytes,
+    proof.merkleProof.root,
+    proof.merkleProof.siblings,
+    proof.continuityProof.lowerEndpointDigest,
+    proof.continuityProof.roots,
+  ] as const;
+}
+
+const refusalCodes: Record<string, string> = {
+  UnsupportedChain: 'UNSUPPORTED_CHAIN',
+  QueryAlreadyProcessed: 'QUERY_ALREADY_PROCESSED',
+  ProofVerificationFailed: 'PROOF_VERIFICATION_FAILED',
+  UnsupportedTransactionType: 'UNSUPPORTED_TRANSACTION_TYPE',
+  SourceTransactionFailed: 'SOURCE_TRANSACTION_FAILED',
+  MissingLockEvent: 'LOCK_EVENT_MISSING',
+  AmbiguousLockEvents: 'AMBIGUOUS_LOCK_EVENTS',
+  MalformedLockEvent: 'MALFORMED_LOCK_EVENT',
+  UnsupportedToken: 'UNSUPPORTED_TOKEN',
+  CollateralBelowMinimum: 'COLLATERAL_TOO_SMALL',
+  InsufficientRemainingLock: 'LOCK_TERM_TOO_SHORT',
+  LockAlreadyUsed: 'LOCK_ALREADY_USED',
+};
+
+export function ascRefusalCode(contract: Contract, error: unknown): string {
+  const data =
+    (error as { data?: string; info?: { error?: { data?: string } } }).data ??
+    (error as { info?: { error?: { data?: string } } }).info?.error?.data;
+  if (!data) return 'ASC_PREFLIGHT_REVERTED';
+  try {
+    const decoded = contract.interface.parseError(data);
+    return decoded ? (refusalCodes[decoded.name] ?? 'ASC_PREFLIGHT_REVERTED') : 'ASC_PREFLIGHT_REVERTED';
+  } catch {
+    return 'ASC_PREFLIGHT_REVERTED';
+  }
 }
 
 export class AttestcoinChainAdapter implements ChainAdapter {
@@ -27,7 +60,7 @@ export class AttestcoinChainAdapter implements ChainAdapter {
   private readonly creditcoinProvider: JsonRpcProvider;
   private readonly wallet: Wallet;
   private readonly asc: Contract;
-  private readonly vaultInterface = new Interface(lockVaultAbi);
+  private readonly sourceValidator: SourceLockValidator;
   private readonly proofBuilder: proofProvider.service.ProofBuilder;
 
   constructor(private readonly config: WorkerConfig) {
@@ -35,20 +68,45 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     this.creditcoinProvider = new JsonRpcProvider(config.CREDITCOIN_RPC_URL);
     this.wallet = new Wallet(config.CREDITCOIN_RELAYER_PRIVATE_KEY, this.creditcoinProvider);
     this.asc = new Contract(config.ATTESTLOCK_ASC_ADDRESS, attestLockAscAbi, this.wallet);
+    this.sourceValidator = new SourceLockValidator(
+      this.sourceProvider,
+      config.SOURCE_VAULT_ADDRESS,
+      config.SOURCE_TOKEN_ADDRESS
+    );
     this.proofBuilder = new proofProvider.service.ProofBuilder(SEPOLIA_CHAIN_KEY, config.PROOF_BUILDER_URL);
+  }
+
+  async isReady(): Promise<boolean> {
+    const [sourceNetwork, destinationNetwork, vaultCode, tokenCode, ascCode] = await Promise.all([
+      this.sourceProvider.getNetwork(),
+      this.creditcoinProvider.getNetwork(),
+      this.sourceProvider.getCode(this.config.SOURCE_VAULT_ADDRESS),
+      this.sourceProvider.getCode(this.config.SOURCE_TOKEN_ADDRESS),
+      this.creditcoinProvider.getCode(this.config.ATTESTLOCK_ASC_ADDRESS),
+    ]);
+    return (
+      sourceNetwork.chainId === BigInt(SEPOLIA_CHAIN_ID) &&
+      destinationNetwork.chainId === BigInt(CREDITCOIN_TESTNET_CHAIN_ID) &&
+      vaultCode !== '0x' &&
+      tokenCode !== '0x' &&
+      ascCode !== '0x'
+    );
   }
 
   async execute(
     job: Job,
     transition: (status: JobStatus, evidence?: JobEvidence) => Promise<void>
   ): Promise<ExecutionResult> {
-    const fact = await this.validateSourceTransaction(job);
+    const fact = await this.sourceValidator.validate(job);
     await transition('waiting_attestation', {
       blockNumber: fact.blockNumber,
       lockId: fact.lockId,
       collateralAmount: fact.amount.toString(),
       collateralUnlockAt: fact.unlockAt,
     });
+
+    const reconciled = await this.reconcileSubmission(job, fact.lockId);
+    if (reconciled) return { evidence: reconciled };
 
     try {
       await this.proofBuilder.waitUntilHeightAttested(SEPOLIA_CHAIN_KEY, fact.blockNumber, 15_000, 1_200_000);
@@ -68,15 +126,7 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     }
 
     const proof = proofResult.data;
-    const args = [
-      proof.chainKey,
-      proof.headerNumber,
-      proof.txBytes,
-      proof.merkleProof.root,
-      proof.merkleProof.siblings,
-      proof.continuityProof.lowerEndpointDigest,
-      proof.continuityProof.roots,
-    ] as const;
+    const args = proofArguments(proof);
     const proofEvidence: JobEvidence = {
       proofMerkleRoot: proof.merkleProof.root,
       continuityRootCount: proof.continuityProof.roots.length,
@@ -93,7 +143,7 @@ export class AttestcoinChainAdapter implements ChainAdapter {
         const existing = await this.findExistingExecution(fact.lockId);
         if (existing) return { evidence: { ...proofEvidence, ...existing } };
         throw new RefusedError(
-          'ASC_PREFLIGHT_REVERTED',
+          ascRefusalCode(this.asc, error),
           `Creditcoin preflight refused the proof: ${message}`
         );
       }
@@ -111,19 +161,12 @@ export class AttestcoinChainAdapter implements ChainAdapter {
         // pallet-evm precompile estimation can fail; bounded fallback is intentional.
       }
       const response = await execute(...args, { gasLimit });
+      await transition('submitting', { creditcoinSubmissionTxHash: response.hash });
       const receipt = await response.wait();
       if (!receipt || receipt.status !== 1) {
         throw new TransientError('CREDITCOIN_TX_FAILED', 'Creditcoin transaction was not successful');
       }
-      let queryId: string | undefined;
-      for (const log of receipt.logs) {
-        try {
-          const parsed = this.asc.interface.parseLog(log);
-          if (parsed?.name === 'LockVerifiedAndLineOpened') queryId = String(parsed.args.queryId);
-        } catch {
-          // Ignore unrelated logs, including the precompile event.
-        }
-      }
+      const queryId = this.queryIdFromLogs(receipt.logs);
       return {
         evidence: {
           ...proofEvidence,
@@ -137,63 +180,8 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     }
   }
 
-  private async validateSourceTransaction(job: Job): Promise<LockFact> {
-    let receipt;
-    try {
-      receipt = await this.sourceProvider.getTransactionReceipt(job.txHash);
-    } catch (error) {
-      throw new TransientError('SOURCE_RPC_UNAVAILABLE', errorMessage(error));
-    }
-    if (!receipt)
-      throw new RefusedError('SOURCE_TX_NOT_FOUND', 'The source transaction does not exist or is not mined.');
-    if (receipt.status !== 1) throw new RefusedError('SOURCE_TX_FAILED', 'The source transaction reverted.');
-    if (!receipt.to || getAddress(receipt.to) !== this.config.SOURCE_VAULT_ADDRESS) {
-      throw new RefusedError(
-        'WRONG_SOURCE_CONTRACT',
-        'The transaction did not call the registered LockVault.'
-      );
-    }
-
-    const candidates = receipt.logs.filter(
-      (log) => getAddress(log.address) === this.config.SOURCE_VAULT_ADDRESS
-    );
-    for (const log of candidates) {
-      try {
-        const parsed = this.vaultInterface.parseLog(log);
-        if (parsed?.name !== 'CollateralLocked') continue;
-        const borrower = getAddress(String(parsed.args.borrower));
-        const token = getAddress(String(parsed.args.token));
-        const amount = BigInt(parsed.args.amount);
-        const unlockAt = Number(parsed.args.unlockAt);
-        const lockId = String(parsed.args.lockId);
-        if (!isAddress(borrower) || borrower !== getAddress(job.borrower)) {
-          throw new RefusedError('BORROWER_MISMATCH', 'The signed wallet is not the collateral borrower.');
-        }
-        if (token !== this.config.SOURCE_TOKEN_ADDRESS) {
-          throw new RefusedError('UNSUPPORTED_TOKEN', 'The lock uses an unsupported source token.');
-        }
-        if (amount < MIN_COLLATERAL) {
-          throw new RefusedError('COLLATERAL_TOO_SMALL', 'The lock is below the 100 mUSDC minimum.');
-        }
-        const required = Math.floor(Date.now() / 1000) + LINE_DURATION_SECONDS + COLLATERAL_BUFFER_SECONDS;
-        if (unlockAt < required) {
-          throw new RefusedError(
-            'LOCK_TERM_TOO_SHORT',
-            'The remaining lock term cannot cover the line and safety buffer.'
-          );
-        }
-        return { blockNumber: receipt.blockNumber, lockId, amount, unlockAt };
-      } catch (error) {
-        if (error instanceof RefusedError) throw error;
-      }
-    }
-    throw new RefusedError(
-      'LOCK_EVENT_MISSING',
-      'No valid CollateralLocked event was emitted by the registered vault.'
-    );
-  }
-
   private async findExistingExecution(lockId: string): Promise<JobEvidence | null> {
+    if (!(await this.asc.getFunction('usedLocks')(lockId))) return null;
     const latest = await this.creditcoinProvider.getBlockNumber();
     const fragment = this.asc.interface.getEvent('LockVerifiedAndLineOpened');
     if (!fragment) throw new Error('LockVerifiedAndLineOpened ABI entry is missing');
@@ -201,11 +189,67 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     const logs = await this.creditcoinProvider.getLogs({
       address: this.config.ATTESTLOCK_ASC_ADDRESS,
       topics,
-      fromBlock: Math.max(0, latest - 50_000),
+      fromBlock: this.config.CREDITCOIN_DEPLOYMENT_BLOCK,
       toBlock: latest,
     });
     const log = logs.at(-1);
     if (!log) return null;
-    return { creditcoinTxHash: log.transactionHash, lockId };
+    const parsed = this.asc.interface.parseLog({ topics: [...log.topics], data: log.data });
+    if (!parsed || parsed.name !== 'LockVerifiedAndLineOpened') return null;
+    const poolAddress = await this.asc.getFunction('pool')();
+    const pool = new Contract(poolAddress, creditPoolAbi, this.creditcoinProvider);
+    const line = await pool.getFunction('lines')(lockId);
+    if (
+      String(line.borrower).toLowerCase() !== String(parsed.args.borrower).toLowerCase() ||
+      String(line.queryId).toLowerCase() !== String(parsed.args.queryId).toLowerCase()
+    ) {
+      return null;
+    }
+    return {
+      creditcoinTxHash: log.transactionHash,
+      lockId,
+      queryId: String(parsed.args.queryId),
+    };
+  }
+
+  private async reconcileSubmission(job: Job, lockId: string): Promise<JobEvidence | null> {
+    const submission = job.evidence.creditcoinSubmissionTxHash;
+    if (submission) {
+      try {
+        const receipt = await this.creditcoinProvider.getTransactionReceipt(submission);
+        if (!receipt)
+          throw new TransientError('CREDITCOIN_TX_PENDING', 'Submitted proof transaction is pending.');
+        if (receipt.status === 1) {
+          return {
+            creditcoinSubmissionTxHash: submission,
+            creditcoinTxHash: submission,
+            lockId,
+            queryId: this.queryIdFromLogs(receipt.logs),
+          };
+        }
+        const existing = await this.findExistingExecution(lockId);
+        if (existing) return { ...existing, creditcoinSubmissionTxHash: submission };
+        throw new RefusedError(
+          'CREDITCOIN_TX_REVERTED',
+          'The recorded Creditcoin proof transaction reverted and changed no protocol state.'
+        );
+      } catch (error) {
+        if (error instanceof RefusedError || error instanceof TransientError) throw error;
+        throw new TransientError('CREDITCOIN_RECONCILIATION_FAILED', errorMessage(error));
+      }
+    }
+    return this.findExistingExecution(lockId);
+  }
+
+  private queryIdFromLogs(logs: readonly { topics: readonly string[]; data: string }[]): string | undefined {
+    for (const log of logs) {
+      try {
+        const parsed = this.asc.interface.parseLog({ topics: [...log.topics], data: log.data });
+        if (parsed?.name === 'LockVerifiedAndLineOpened') return String(parsed.args.queryId);
+      } catch {
+        // Ignore unrelated logs, including the precompile event.
+      }
+    }
+    return undefined;
   }
 }

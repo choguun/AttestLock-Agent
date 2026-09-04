@@ -15,7 +15,7 @@ Shipped in code:
 - six-decimal one-time-faucet `MockUSDC` and expiring `LockVault`;
 - official-ABI `AttestLockASC`, replay protection, exact receipt/event policy;
 - ASC-only `CreditPool`, six-decimal `MockUSD`, borrower-only borrow, open repayment;
-- signed and quota-limited worker API, PostgreSQL persistence, restart recovery, retries, preflight, SSE;
+- tx-bound EIP-712 worker API, transactional quotas, PostgreSQL migrations, scale-safe claims, restart reconciliation, deterministic refusals, retries, preflight, and SSE;
 - responsive wallet UI for source flow, proof evidence, refusal, borrow, and repay;
 - CI, deployment scripts, clean-clone verification, and judge documentation.
 
@@ -26,12 +26,12 @@ Explicitly excluded: native ETH, multiple assets, price oracles, interest, liqui
 - [x] Contracts compile and automated proof/pool tests pass.
 - [x] Worker and UI type-check, test, and production-build locally.
 - [x] Live deployment scripts and sanitized manifests exist.
-- [x] Public GitHub repository and green hosted CI.
+- [x] Public GitHub repository and green baseline CI; the completion branch must pass its own PR run before merge.
 - [ ] Sepolia and Creditcoin testnet deployments.
 - [ ] One live proof-to-line-to-borrow transcript.
 - [ ] Junk, tampered-proof, and replay live evidence.
 - [x] Railway project, Singapore web preview, worker skeleton, and private PostgreSQL. Worker activation awaits live addresses and relayer credentials.
-- [x] Visually verified six-slide PPTX/PDF.
+- [x] Visually verified six-slide PPTX/PDF with target user, distribution, ecosystem value, credibility, and roadmap.
 - [ ] Recorded 90-second live demo.
 - [ ] DoraHacks submission.
 

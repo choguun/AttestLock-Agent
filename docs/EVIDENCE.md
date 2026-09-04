@@ -2,6 +2,19 @@
 
 This checklist prevents build output or mocked fixtures from being presented as a deployed integration.
 
+## Repository verification snapshot
+
+Verified locally on `2026-09-03T16:39:00Z` from branch `codex/hackathon-completion`:
+
+- `pnpm verify` passed with PostgreSQL enabled: 49 tests, zero failures, zero skips.
+- `pnpm audit --prod` reported no known vulnerabilities.
+- `forge lint --root contracts` completed with only the expected timestamp-policy warnings for maturity and expiry checks.
+- The production build fails closed unless `VITE_PREVIEW_MODE=true` or the live API and deployed contract addresses are present.
+- Browser QA passed at 1440×900 and 390×844 with no horizontal overflow or console errors.
+- The six-slide PPTX passed template fidelity and overflow checks; the six-page PDF was rendered and inspected page by page.
+
+This snapshot is repository evidence, not live-chain proof.
+
 ## Gate 1 — deployments
 
 - [ ] `MockUSDC` and `LockVault` deployed on Sepolia `11155111`.
@@ -30,22 +43,37 @@ This checklist prevents build output or mocked fixtures from being presented as 
 
 ## Evidence table
 
-| Field                   | Value                                                                |
-| ----------------------- | -------------------------------------------------------------------- |
-| Public repository       | https://github.com/choguun/AttestLock-Agent                          |
-| Git commit              | `65f79c9`                                                            |
-| Sepolia deployment      | Pending                                                              |
-| Creditcoin deployment   | Pending                                                              |
-| Sepolia lock tx         | Pending                                                              |
-| Attested block/time     | Pending                                                              |
-| Sanitized proof fixture | Pending                                                              |
-| Creditcoin proof tx     | Pending                                                              |
-| Creditcoin borrow tx    | Pending                                                              |
-| Junk refusal job        | Pending                                                              |
-| Hosted web URL          | https://attestlock-web-production.up.railway.app                     |
-| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                            |
-| Worker health URL       | Pending                                                              |
-| CI run                  | https://github.com/choguun/AttestLock-Agent/actions/runs/33672079969 |
+| Field                   | Value                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| Public repository       | https://github.com/choguun/AttestLock-Agent                                       |
+| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                        |
+| Release candidate       | `c19283e824a5bc9848fdded9ca89d578a8a38430`                                        |
+| Completion branch/PR    | `codex/hackathon-completion` / https://github.com/choguun/AttestLock-Agent/pull/1 |
+| Sepolia deployment      | Pending                                                                           |
+| Creditcoin deployment   | Pending                                                                           |
+| Sepolia lock tx         | Pending                                                                           |
+| Attested block/time     | Pending                                                                           |
+| Sanitized proof fixture | Pending                                                                           |
+| Creditcoin proof tx     | Pending                                                                           |
+| Creditcoin borrow tx    | Pending                                                                           |
+| Junk refusal job        | Pending                                                                           |
+| Hosted web URL          | https://attestlock-web-production.up.railway.app                                  |
+| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                    |
+| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                         |
+| Worker health URL       | Pending — worker has no deployment while chain credentials are absent             |
+| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023              |
+| Completion CI run       | https://github.com/choguun/AttestLock-Agent/actions/runs/33781542310              |
+
+## Railway observation
+
+Observed again after deployment at `2026-09-03T16:57:09Z`:
+
+- `attestlock-web` deployment `0f514b7b-2ada-47f6-9868-bf05ae323756` passed its `/` health check in Singapore; the page and public logo both returned HTTP 200;
+- private PostgreSQL is running with a persistent volume;
+- `attestlock-worker` has no active deployment and no public domain;
+- the worker is intentionally not connected/deployed until Sepolia RPC, Creditcoin RPC, proof-builder URL, funded relayer key, source addresses, destination address, and deployment block are available.
+
+Connecting the worker early would create a knowingly failed public deployment and would not satisfy the live gate.
 
 ## Sanitization
 

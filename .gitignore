@@ -5,6 +5,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!apps/web/.env.production
 contracts/cache/
 contracts/out/
 contracts/broadcast/

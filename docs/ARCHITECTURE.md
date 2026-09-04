@@ -15,7 +15,7 @@ MockUSDC → LockVault                       AttestLockASC → CreditPool → Mo
           PostgreSQL                                    borrower signature
 ```
 
-The wallet is the only component authorized to lock, withdraw, borrow, or approve repayment. The worker holds a dedicated testnet relayer key whose only intended action is proof submission. The proof verifier—not the worker database or UI—is authoritative for opening credit.
+The wallet is the only component authorized to lock, withdraw, borrow, or approve repayment. Queue authorization uses EIP-712 data bound to the wallet, exact transaction hash, Sepolia chain, source vault, API origin, nonce, and expiry. The worker holds a dedicated testnet relayer key whose only intended action is proof submission. The proof verifier—not the worker database or UI—is authoritative for opening credit.
 
 ## State machines
 
@@ -44,11 +44,12 @@ Policy failures terminate in `refused`. Exhausted infrastructure retries termina
 
 ## Operational design
 
-- PostgreSQL persists challenges, jobs, attempts, evidence, and retry schedule.
-- One Railway worker replica processes jobs every two seconds.
+- Versioned PostgreSQL migrations persist challenges, jobs, attempts, evidence, and retry schedule.
+- The target deployment is one Railway worker replica in Singapore. Atomic row claiming remains safe if a second replica is introduced.
 - Transient failures retry after 5, 30, and 120 seconds, then fail closed.
-- Signed challenges expire after a short window and are consumed once.
-- Per-wallet daily quotas bound relayer spend.
+- Typed challenges expire after a short window, authorize one transaction, and are consumed once.
+- Transactional per-wallet quotas and IP rate limits bound relayer spend.
+- A submitted Creditcoin transaction hash is persisted before confirmation and reconciled on restart.
 - SSE gives the browser immediate updates; REST remains the recovery path.
 
 ## Intentionally excluded from V1

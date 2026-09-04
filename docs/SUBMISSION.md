@@ -5,6 +5,7 @@
 **Name:** AttestLock Agent
 **Primary track:** DeFi
 **Tagline:** Collateral stays on Ethereum; Creditcoin acts only on a proof.
+**Logo:** https://attestlock-web-production.up.railway.app/attestlock-logo.svg
 
 ## Short description
 
@@ -44,5 +45,9 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 | Sepolia lock      | Pending funded deployment                                                                     |
 | Creditcoin proof  | Pending funded deployment                                                                     |
 | Creditcoin borrow | Pending funded deployment                                                                     |
+
+## Team information
+
+This is a solo `choguun` submission. The required legal name, email, short bio, role, country of residence, and country of citizenship must be entered privately in DoraHacks before submission. Optional Telegram, X, LinkedIn, and resume links may be added by the user. Do not infer or commit personal identity fields.
 
 Do not submit until every pending field required by the [official hackathon page](https://dorahacks.io/hackathon/buidl-ctc-2026-fall/detail) is populated and independently opened in a clean browser session.

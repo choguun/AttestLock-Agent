@@ -63,6 +63,14 @@ contract AttestLockASCTest is Test {
         assertTrue(asc.processedQueries(queryId));
     }
 
+    function testQueryIdPackingMatchesOfficialASCBaseLayout() external {
+        bytes memory encodedTx = _validEncodedTx();
+        _mockVerifier(encodedTx, true, 7);
+        _execute(encodedTx, 1);
+        (,,,,,, bytes32 queryId) = pool.lines(lockId);
+        assertEq(queryId, keccak256(abi.encodePacked(uint256(1), blockHeight, uint256(7))));
+    }
+
     function testInvalidProofLeavesStateUnchanged() external {
         bytes memory encodedTx = _validEncodedTx();
         _mockVerifier(encodedTx, false, 0);
@@ -208,6 +216,99 @@ contract AttestLockASCTest is Test {
             uint64(block.timestamp + 14 days),
             bytes32(uint256(1))
         );
+    }
+
+    function testPoolRejectsInvalidAndDuplicateLines() external {
+        vm.startPrank(address(asc));
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            bytes32(0),
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            lockId,
+            address(0),
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+        vm.expectRevert(CreditPool.InvalidLine.selector);
+        pool.openLine(
+            lockId,
+            borrower,
+            0,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+
+        pool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+        vm.expectRevert(CreditPool.LineAlreadyExists.selector);
+        pool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(2))
+        );
+        vm.stopPrank();
+    }
+
+    function testThirdPartyCanRepayAfterMaturity() external {
+        bytes memory encodedTx = _validEncodedTx();
+        _mockVerifier(encodedTx, true, 0);
+        _execute(encodedTx, 1);
+        vm.prank(borrower);
+        pool.borrow(lockId, 20e6);
+
+        address payer = makeAddr("payer");
+        asset.mint(payer, 20e6);
+        vm.warp(block.timestamp + 8 days);
+        vm.startPrank(payer);
+        asset.approve(address(pool), 20e6);
+        pool.repay(lockId, 20e6);
+        vm.stopPrank();
+        (,, uint256 debt,,,,) = pool.lines(lockId);
+        assertEq(debt, 0);
+    }
+
+    function testInsolventPoolCannotCreateDebt() external {
+        CreditPool emptyPool = new CreditPool(address(asset), address(this));
+        emptyPool.setASC(address(this));
+        emptyPool.openLine(
+            lockId,
+            borrower,
+            50e6,
+            uint64(block.timestamp + 7 days),
+            100e6,
+            uint64(block.timestamp + 14 days),
+            bytes32(uint256(1))
+        );
+
+        vm.prank(borrower);
+        vm.expectRevert();
+        emptyPool.borrow(lockId, 1e6);
+        (,, uint256 debt,,,,) = emptyPool.lines(lockId);
+        assertEq(debt, 0);
     }
 
     function testFuzzDebtNeverExceedsLimit(uint96 requested) external {
