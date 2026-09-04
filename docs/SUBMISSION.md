@@ -41,8 +41,8 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 | ----------------- | --------------------------------------------------------------------------------------------- |
 | Public repository | https://github.com/choguun/AttestLock-Agent                                                   |
 | Hosted demo       | https://attestlock-web-production.up.railway.app                                              |
-| Five-minute setup | https://github.com/choguun/AttestLock-Agent/blob/main/docs/ONBOARDING.md                      |
-| Competitor matrix | https://github.com/choguun/AttestLock-Agent/blob/main/docs/COMPETITIVE.md                     |
+| Five-minute setup | [ONBOARDING.md](ONBOARDING.md)                                                                |
+| Competitor matrix | [COMPETITIVE.md](COMPETITIVE.md)                                                              |
 | Demo video        | Pending live evidence recording                                                               |
 | Slide deck PDF    | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck.pdf |
 | Sepolia lock      | Pending funded deployment                                                                     |

@@ -44,27 +44,27 @@ This snapshot is repository evidence, not live-chain proof.
 
 ## Evidence table
 
-| Field                   | Value                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| Public repository       | https://github.com/choguun/AttestLock-Agent                                          |
-| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                           |
-| Release candidate       | `c19283e824a5bc9848fdded9ca89d578a8a38430`                                           |
-| Completion branch/PR    | `codex/hackathon-90-plus` / https://github.com/choguun/AttestLock-Agent/pull/2       |
-| Sepolia deployment      | Pending                                                                              |
-| Creditcoin deployment   | Pending                                                                              |
-| Sepolia lock tx         | Pending                                                                              |
-| Attested block/time     | Pending                                                                              |
-| Sanitized proof fixture | Pending                                                                              |
-| Creditcoin proof tx     | Pending                                                                              |
-| Creditcoin borrow tx    | Pending                                                                              |
-| Junk refusal job        | Pending                                                                              |
-| Hosted web URL          | https://attestlock-web-production.up.railway.app                                     |
-| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                       |
-| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                            |
-| Worker health URL       | https://attestlock-worker-production.up.railway.app — domain reserved; no deployment |
-| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023                 |
-| Merged-main CI run      | https://github.com/choguun/AttestLock-Agent/actions/runs/33825126459                 |
-| 90+ branch CI run       | https://github.com/choguun/AttestLock-Agent/actions/runs/33829174378                 |
+| Field                   | Value                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| Public repository       | https://github.com/choguun/AttestLock-Agent                                    |
+| Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                     |
+| Release candidate       | `c19283e824a5bc9848fdded9ca89d578a8a38430`                                     |
+| Completion branch/PR    | `codex/hackathon-90-plus` / https://github.com/choguun/AttestLock-Agent/pull/2 |
+| Sepolia deployment      | Pending                                                                        |
+| Creditcoin deployment   | Pending                                                                        |
+| Sepolia lock tx         | Pending                                                                        |
+| Attested block/time     | Pending                                                                        |
+| Sanitized proof fixture | Pending                                                                        |
+| Creditcoin proof tx     | Pending                                                                        |
+| Creditcoin borrow tx    | Pending                                                                        |
+| Junk refusal job        | Pending                                                                        |
+| Hosted web URL          | https://attestlock-web-production.up.railway.app                               |
+| Hosted web deployment   | Railway `0f514b7b-2ada-47f6-9868-bf05ae323756`                                 |
+| Judge deck              | `docs/deck/AttestLock-Hackathon-Deck.pdf`                                      |
+| Worker health URL       | Reserved: `attestlock-worker-production.up.railway.app`; no deployment         |
+| Baseline CI run         | https://github.com/choguun/AttestLock-Agent/actions/runs/33672258023           |
+| Merged-main CI run      | https://github.com/choguun/AttestLock-Agent/actions/runs/33825126459           |
+| 90+ branch CI run       | https://github.com/choguun/AttestLock-Agent/actions/runs/33829174378           |
 
 ## Railway observation
 
