@@ -2,6 +2,7 @@
   "chainId": 11155111,
   "network": "Sepolia",
   "deployedAt": null,
+  "generatedAt": null,
   "commitSha": null,
   "solcVersion": "0.8.28",
   "dependencies": {
@@ -13,6 +14,8 @@
     "MockUSDC": null,
     "LockVault": null
   },
+  "constructorArguments": {},
+  "codeHashes": {},
   "transactions": {},
   "explorerUrls": {}
 }

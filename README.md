@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: implementation, automated tests, green hosted CI, the public repository, hosted judge-safe web preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, and explorer evidence remain blocked on funded testnet credentials and are deliberately not claimed.
+> Current status: the proof-gated contracts, reusable borrower profile, ChainInfo-aware worker, aggregate stats, database-backed tests, browser E2E, production smoke workflow, public repository, hosted judge-safe preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, native proof, explorer evidence, and videos remain pending and are deliberately not claimed.
 
 **Hosted preview:** https://attestlock-web-production.up.railway.app
 
@@ -67,6 +67,8 @@ Prerequisites: Node 22+, pnpm 11.24+, Foundry, and optionally PostgreSQL 17 for 
 pnpm install --frozen-lockfile
 (cd contracts && forge install foundry-rs/forge-std@v1.9.7 --no-git)
 pnpm verify
+pnpm contracts:coverage
+pnpm test:e2e
 ```
 
 Without `DATABASE_TEST_URL`, the PostgreSQL integration test is skipped; all other tests run without secrets. To exercise it:
@@ -90,32 +92,48 @@ pnpm --filter @attestlock/worker dev
 
 ## Testnet deployment
 
-Never use a mainnet key. Use a dedicated testnet deployer and relayer.
+Never use a mainnet key. Import a dedicated testnet deployer into Foundry's encrypted local keystore; keep the separate relayer only in the worker's sealed environment.
 
 ```bash
-export DEPLOYER_PRIVATE_KEY=0x...
+cast wallet import attestlock-deployer --interactive
+export DEPLOYER_ADDRESS=0x...
 forge script contracts/script/DeploySource.s.sol:DeploySource \
-  --root contracts --rpc-url "$SEPOLIA_RPC_URL" --broadcast
+  --root contracts --rpc-url "$SEPOLIA_RPC_URL" --broadcast \
+  --account attestlock-deployer --sender "$DEPLOYER_ADDRESS"
 
 export SOURCE_TOKEN_ADDRESS=0x...
 export SOURCE_VAULT_ADDRESS=0x...
 forge script contracts/script/DeployCreditcoin.s.sol:DeployCreditcoin \
-  --root contracts --rpc-url https://rpc.cc3-testnet.creditcoin.network --broadcast
+  --root contracts --rpc-url https://rpc.cc3-testnet.creditcoin.network --broadcast \
+  --account attestlock-deployer --sender "$DEPLOYER_ADDRESS"
 ```
 
-Copy broadcast results into new non-example deployment JSON files, then follow [the evidence runbook](docs/EVIDENCE.md). Deployment is not “done” until the proof transaction and borrower-signed borrow are visible on both explorers.
+Generate immutable sanitized manifests from the Foundry broadcast artifacts, then follow the evidence runbook:
+
+```bash
+DEPLOYMENT_NETWORK=sepolia \
+BROADCAST_FILE=contracts/broadcast/DeploySource.s.sol/11155111/run-latest.json \
+OUTPUT_FILE=deployments/sepolia.json \
+DEPLOYMENT_RPC_URL="$SEPOLIA_RPC_URL" \
+pnpm deployments:manifest
+
+pnpm evidence:live
+```
+
+Deployment is not “done” until the proof transaction and borrower-signed borrow are visible on both explorers.
 
 ## API
 
-| Route                      | Purpose                                                       |
-| -------------------------- | ------------------------------------------------------------- |
-| `POST /api/challenges`     | Create a `{ wallet, txHash }` EIP-712 authorization           |
-| `POST /api/jobs`           | Queue one source transaction after signature and quota checks |
-| `GET /api/jobs/:id`        | Read one proof job                                            |
-| `GET /api/jobs?wallet=…`   | List a wallet's jobs                                          |
-| `GET /api/events?wallet=…` | Stream job updates over SSE                                   |
-| `GET /health`              | Railway health check                                          |
-| `GET /ready`               | PostgreSQL, chain-ID, and deployed-bytecode readiness check   |
+| Route                      | Purpose                                                        |
+| -------------------------- | -------------------------------------------------------------- |
+| `POST /api/challenges`     | Create a `{ wallet, txHash }` EIP-712 authorization            |
+| `POST /api/jobs`           | Queue one source transaction after signature and quota checks  |
+| `GET /api/jobs/:id`        | Read one proof job                                             |
+| `GET /api/jobs?wallet=…`   | List a wallet's jobs                                           |
+| `GET /api/events?wallet=…` | Stream job updates over SSE                                    |
+| `GET /api/stats`           | Aggregate jobs, authorized-wallet count, outcomes, attestation |
+| `GET /health`              | Railway health check                                           |
+| `GET /ready`               | Versioned DB/RPC/bytecode/ChainInfo/prover/relayer readiness   |
 
 The queue is idempotent by transaction hash. Typed challenges bind the wallet, transaction, Sepolia chain, source vault, API origin, nonce, and expiry. Quota enforcement and job claiming are transactional, and another wallet cannot claim an existing source transaction.
 
@@ -128,6 +146,7 @@ The hosted preview keeps transaction buttons disabled until live contract addres
 - Query IDs and proof-derived lock IDs are both one-time.
 - `CreditPool.openLine` is callable only by the immutable ASC configured once.
 - The borrower must sign `borrow`; repayment remains available after maturity.
+- A Creditcoin-native borrower profile counts only proof-opened lines and real draws/repayments.
 - Transient infrastructure failures retry with bounded backoff; policy failures are terminal refusals.
 
 See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshipped controls.
@@ -141,6 +160,8 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 - [Submission draft](docs/SUBMISSION.md)
 - [Rubric and eligibility ledger](docs/RUBRIC.md)
 - [Market and ecosystem thesis](docs/MARKET.md)
+- [Competitive positioning](docs/COMPETITIVE.md)
+- [Five-minute onboarding](docs/ONBOARDING.md)
 - [90-second video script](docs/VIDEO_SCRIPT.md)
 - [Six-slide judge deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck.pptx)
 - [Six-slide judge deck (PDF)](docs/deck/AttestLock-Hackathon-Deck.pdf)

@@ -1,4 +1,4 @@
-import type { Challenge, CreateJobRequest, Job } from '@attestlock/shared';
+import type { Challenge, CreateJobRequest, Job, PublicStats } from '@attestlock/shared';
 import { config } from './config';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -23,5 +23,8 @@ export const api = {
   },
   listJobs(wallet: string): Promise<Job[]> {
     return request(`/api/jobs?wallet=${encodeURIComponent(wallet)}`);
+  },
+  stats(): Promise<PublicStats> {
+    return request('/api/stats');
   },
 };

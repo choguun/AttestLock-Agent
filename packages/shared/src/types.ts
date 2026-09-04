@@ -13,14 +13,49 @@ export type JobStatus = (typeof jobStatuses)[number];
 
 export interface JobEvidence {
   blockNumber?: number;
+  attestedHeight?: number;
+  attestedAt?: string;
   lockId?: string;
   collateralAmount?: string;
   collateralUnlockAt?: number;
   proofMerkleRoot?: string;
   continuityRootCount?: number;
+  proofGeneratedAt?: string;
   creditcoinTxHash?: string;
   creditcoinSubmissionTxHash?: string;
+  creditcoinBlockNumber?: number;
+  gasUsed?: string;
+  processingDurationMs?: number;
   queryId?: string;
+}
+
+export interface PublicStats {
+  generatedAt: string;
+  totalJobs: number;
+  uniqueWallets: number;
+  executedJobs: number;
+  refusedJobs: number;
+  failedJobs: number;
+  latestAttestedHeight: number | null;
+}
+
+export interface ReadinessChecks {
+  database: boolean;
+  sourceRpc: boolean;
+  destinationRpc: boolean;
+  sourceContracts: boolean;
+  destinationContracts: boolean;
+  attestcoinChain: boolean;
+  activeAttestation: boolean;
+  proofBuilder: boolean;
+  fundedRelayer: boolean;
+}
+
+export interface ReadinessReport {
+  status: 'ready' | 'unavailable';
+  version: string;
+  checks: ReadinessChecks;
+  latestAttestedHeight: number | null;
 }
 
 export interface Job {

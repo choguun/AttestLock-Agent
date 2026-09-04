@@ -11,13 +11,12 @@ contract DeployCreditcoin is Script {
     uint256 internal constant DEFAULT_POOL_LIQUIDITY = 1_000_000e6;
 
     function run() external returns (MockUSD asset, CreditPool pool, AttestLockASC asc) {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address deployer = vm.addr(deployerKey);
+        address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         address sourceVault = vm.envAddress("SOURCE_VAULT_ADDRESS");
         address sourceToken = vm.envAddress("SOURCE_TOKEN_ADDRESS");
         uint256 liquidity = vm.envOr("POOL_LIQUIDITY", DEFAULT_POOL_LIQUIDITY);
 
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast();
         asset = new MockUSD(deployer);
         pool = new CreditPool(address(asset), deployer);
         asc = new AttestLockASC(address(pool), sourceVault, sourceToken);

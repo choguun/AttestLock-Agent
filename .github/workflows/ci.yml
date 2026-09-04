@@ -44,6 +44,14 @@ jobs:
         run: forge install foundry-rs/forge-std@v1.9.7 --no-git
       - name: Verify formatting, types, tests, and builds
         run: pnpm verify
+      - name: Measure contract coverage
+        run: pnpm contracts:coverage
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run browser acceptance tests
+        run: pnpm test:e2e
 
   secrets:
     runs-on: ubuntu-latest

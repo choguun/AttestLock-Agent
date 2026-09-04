@@ -22,11 +22,12 @@ The supported token is the deployed six-decimal `MockUSDC`. The source vault enf
 
 1. Fetch the transaction receipt from Sepolia.
 2. Refuse a missing or failed receipt, wrong `to`, wrong emitter, wrong event, wrong borrower, wrong token, small amount, or insufficient remaining term.
-3. Call `ProofBuilder.waitUntilHeightAttested(1, blockNumber, 15_000, 1_200_000)`.
-4. Call `ProofBuilder.getProof(txHash)` using `@gluwa/usc-sdk@0.18.0`.
-5. Convert the official result into the seven arguments expected by `verifyLockAndOpenLine`.
-6. Run `eth_call` preflight against the exact relayer call.
-7. Broadcast only if simulation succeeds.
+3. Confirm ChainInfo binds chain key `1` to Sepolia `11155111`, exposes an attestation, and keeps advancing within the configured freshness window.
+4. Call `ProofBuilder.waitUntilHeightAttested(1, blockNumber, 15_000, 1_200_000)`.
+5. Call `ProofBuilder.getProof(txHash)` using `@gluwa/usc-sdk@0.18.0`.
+6. Convert the official result into the seven arguments expected by `verifyLockAndOpenLine`.
+7. Run `eth_call` preflight against the exact relayer call.
+8. Broadcast only if simulation succeeds and persist its hash before confirmation.
 
 Preflight is a cost and operations control, not the trust boundary. The destination contract repeats all material validation.
 
@@ -52,6 +53,8 @@ It then decodes the proof-contained transaction with `EvmV1Decoder` and checks:
 - remaining collateral term covers seven-day maturity plus one-day buffer.
 
 Only after all checks pass does the ASC call `CreditPool.openLine` with a `50%` limit.
+
+The worker records attested height/time, proof-generation time, destination block, gas used, and total processing duration. Those fields are operational evidence; the proof and destination state remain authoritative.
 
 ## Replay protection
 

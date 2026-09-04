@@ -15,9 +15,10 @@ Shipped in code:
 - six-decimal one-time-faucet `MockUSDC` and expiring `LockVault`;
 - official-ABI `AttestLockASC`, replay protection, exact receipt/event policy;
 - ASC-only `CreditPool`, six-decimal `MockUSD`, borrower-only borrow, open repayment;
+- reusable Creditcoin borrower profile updated only by proof-opened lines, draws, and repayments;
 - tx-bound EIP-712 worker API, transactional quotas, PostgreSQL migrations, scale-safe claims, restart reconciliation, deterministic refusals, retries, preflight, and SSE;
-- responsive wallet UI for source flow, proof evidence, refusal, borrow, and repay;
-- CI, deployment scripts, clean-clone verification, and judge documentation.
+- responsive wallet UI for source flow, proof evidence, refusal, borrow, repay, profiles, and aggregate activity;
+- ChainInfo/prover/relayer readiness, production smoke, browser E2E, CI, deployment-manifest generation, clean-clone verification, and judge documentation.
 
 Explicitly excluded: native ETH, multiple assets, price oracles, interest, liquidation, batch proofs, source-chain writability, mainnet, automatic borrowing, and LLM financial decisions.
 
@@ -25,6 +26,9 @@ Explicitly excluded: native ETH, multiple assets, price oracles, interest, liqui
 
 - [x] Contracts compile and automated proof/pool tests pass.
 - [x] Worker and UI type-check, test, and production-build locally.
+- [x] PostgreSQL integration tests, browser E2E, accessibility scan, and Foundry coverage run locally.
+- [x] ChainInfo chain registration, active/advancing attestation, ProofBuilder, bytecode, and relayer funding are required by readiness.
+- [x] Aggregate-only public statistics and reusable borrower profile are implemented.
 - [x] Live deployment scripts and sanitized manifests exist.
 - [x] Public GitHub repository and green baseline CI; the completion branch must pass its own PR run before merge.
 - [ ] Sepolia and Creditcoin testnet deployments.

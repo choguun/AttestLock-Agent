@@ -41,6 +41,7 @@ Policy failures terminate in `refused`. Exhausted infrastructure retries termina
 4. Only the recorded borrower can increase debt.
 5. Maturity stops new borrowing but never blocks repayment.
 6. The worker cannot move borrower funds.
+7. Borrower-profile debt equals aggregate borrowed minus aggregate repaid.
 
 ## Operational design
 
@@ -51,6 +52,13 @@ Policy failures terminate in `refused`. Exhausted infrastructure retries termina
 - Transactional per-wallet quotas and IP rate limits bound relayer spend.
 - A submitted Creditcoin transaction hash is persisted before confirmation and reconciled on restart.
 - SSE gives the browser immediate updates; REST remains the recovery path.
+- `/ready` fails unless database, both RPCs, all deployed bytecode, Sepolia ChainInfo registration, a fresh/advancing attestation, ProofBuilder, and relayer funding pass.
+- `/api/stats` exposes counts and latest attested height only; it never returns wallet lists.
+- A scheduled production smoke independently checks hosted endpoints, CORS, chain IDs, bytecode, native ChainInfo, relayer funding, and contract bindings.
+
+## Creditcoin borrower profile
+
+`CreditPool.borrowerProfiles(address)` accumulates `lineCount`, `totalCreditOpened`, `totalBorrowed`, `totalRepaid`, and `outstandingDebt`. A line affects the profile only after the ASC opens it. Borrow and repay accounting occurs only after successful token transfers. A third-party repayment updates the recorded borrower, not the payer.
 
 ## Intentionally excluded from V1
 

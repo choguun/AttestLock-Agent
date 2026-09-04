@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Job } from '@attestlock/shared';
+import type { Job, PublicStats } from '@attestlock/shared';
 import { api } from './api';
 import { config, isConfigured } from './config';
 import { StatusTimeline } from './StatusTimeline';
@@ -13,11 +13,13 @@ import {
   formatTimestamp,
   lockCollateral,
   readBalances,
+  readBorrowerProfile,
   readCreditLine,
   repay,
   shortAddress,
   switchChain,
   watchWallet,
+  type BorrowerProfileView,
   type CreditLineView,
   type WalletSession,
   walletErrorMessage,
@@ -47,9 +49,11 @@ export default function App() {
   const [notice, setNotice] = useState('Connect a wallet to begin.');
   const [busy, setBusy] = useState<string | null>(null);
   const [line, setLine] = useState<CreditLineView | null>(null);
+  const [profile, setProfile] = useState<BorrowerProfileView | null>(null);
   const [creditTx, setCreditTx] = useState<string | null>(null);
   const [sourceTx, setSourceTx] = useState<{ label: string; hash: string } | null>(null);
   const [balances, setBalances] = useState<Partial<{ collateral: string; credit: string }>>({});
+  const [stats, setStats] = useState<PublicStats | null>(null);
   const latest = jobs[0];
   const executed = jobs.find((job) => job.status === 'executed' && job.evidence.lockId);
 
@@ -72,11 +76,24 @@ export default function App() {
   }, [refreshJobs, session]);
 
   useEffect(() => {
+    if (!isConfigured) return;
+    const refresh = () =>
+      void api
+        .stats()
+        .then(setStats)
+        .catch(() => undefined);
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!session) return;
     return watchWallet(() => {
       void connectWallet().then((next) => {
         setSession(next);
         setLine(null);
+        setProfile(null);
         setBalances({});
         setNotice(`Wallet changed to ${shortAddress(next.address)} on ${chainLabel(next.chainId)}.`);
       });
@@ -90,9 +107,7 @@ export default function App() {
 
   useEffect(() => {
     if (!session || session.chainId !== config.creditcoinChainId || !executed?.evidence.lockId) return;
-    void readCreditLine(session.signer, executed.evidence.lockId)
-      .then(setLine)
-      .catch(() => setLine(null));
+    void refreshCreditState(session, executed.evidence.lockId);
   }, [executed?.evidence.lockId, session]);
 
   const proofFact = useMemo(() => {
@@ -118,6 +133,20 @@ export default function App() {
       setBalances((current) => ({ ...current, ...next }));
     } catch {
       // Balance evidence is helpful but does not control transaction safety.
+    }
+  }
+
+  async function refreshCreditState(currentSession: WalletSession, lockId: string) {
+    try {
+      const [nextLine, nextProfile] = await Promise.all([
+        readCreditLine(currentSession.signer, lockId),
+        readBorrowerProfile(currentSession.signer, currentSession.address),
+      ]);
+      setLine(nextLine);
+      setProfile(nextProfile);
+    } catch {
+      setLine(null);
+      setProfile(null);
     }
   }
 
@@ -331,6 +360,30 @@ export default function App() {
                   <dd>{latest.evidence.proofMerkleRoot.slice(0, 12)}…</dd>
                 </div>
               )}
+              {latest.evidence.attestedHeight && (
+                <div>
+                  <dt>Attested height</dt>
+                  <dd>{latest.evidence.attestedHeight.toLocaleString()}</dd>
+                </div>
+              )}
+              {latest.evidence.creditcoinBlockNumber && (
+                <div>
+                  <dt>Creditcoin block</dt>
+                  <dd>{latest.evidence.creditcoinBlockNumber.toLocaleString()}</dd>
+                </div>
+              )}
+              {latest.evidence.gasUsed && (
+                <div>
+                  <dt>Proof gas</dt>
+                  <dd>{BigInt(latest.evidence.gasUsed).toLocaleString()}</dd>
+                </div>
+              )}
+              {latest.evidence.processingDurationMs !== undefined && (
+                <div>
+                  <dt>Proof latency</dt>
+                  <dd>{Math.round(latest.evidence.processingDurationMs / 1000)}s</dd>
+                </div>
+              )}
               {latest.evidence.queryId && (
                 <div>
                   <dt>Query ID</dt>
@@ -404,7 +457,7 @@ export default function App() {
                 void act('Borrowing 50 mUSD', async () => {
                   const hash = await borrow(session!.signer, executed!.evidence.lockId!, '50');
                   setCreditTx(hash);
-                  setLine(await readCreditLine(session!.signer, executed!.evidence.lockId!));
+                  await refreshCreditState(session!, executed!.evidence.lockId!);
                   await refreshBalancesFor(session!);
                   setNotice('Borrow confirmed by your wallet.');
                 })
@@ -426,7 +479,7 @@ export default function App() {
                 void act('Repaying debt', async () => {
                   const hash = await repay(session!.signer, executed!.evidence.lockId!, line!.debt);
                   setCreditTx(hash);
-                  setLine(await readCreditLine(session!.signer, executed!.evidence.lockId!));
+                  await refreshCreditState(session!, executed!.evidence.lockId!);
                   await refreshBalancesFor(session!);
                   setNotice('Repayment confirmed.');
                 })
@@ -451,7 +504,52 @@ export default function App() {
           <p className="microcopy">
             The relayer can open a bounded line. It cannot call <code>borrow</code> for you.
           </p>
+          <section className="credit-profile" aria-label="Creditcoin borrower profile">
+            <div>
+              <span>Proven lines</span>
+              <strong>{profile?.lineCount ?? '—'}</strong>
+            </div>
+            <div>
+              <span>Credit opened</span>
+              <strong>{profile ? `${profile.totalCreditOpened} mUSD` : '—'}</strong>
+            </div>
+            <div>
+              <span>Total borrowed</span>
+              <strong>{profile ? `${profile.totalBorrowed} mUSD` : '—'}</strong>
+            </div>
+            <div>
+              <span>Total repaid</span>
+              <strong>{profile ? `${profile.totalRepaid} mUSD` : '—'}</strong>
+            </div>
+            <div>
+              <span>Outstanding</span>
+              <strong>{profile ? `${profile.outstandingDebt} mUSD` : '—'}</strong>
+            </div>
+          </section>
         </article>
+      </section>
+
+      <section className="protocol-stats" aria-label="Public protocol activity">
+        <div>
+          <span>Authorized wallets</span>
+          <strong>{stats?.uniqueWallets ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Proof jobs</span>
+          <strong>{stats?.totalJobs ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Executed</span>
+          <strong>{stats?.executedJobs ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Refused</span>
+          <strong>{stats?.refusedJobs ?? '—'}</strong>
+        </div>
+        <div>
+          <span>Latest Sepolia attestation</span>
+          <strong>{stats?.latestAttestedHeight?.toLocaleString() ?? '—'}</strong>
+        </div>
       </section>
 
       <section className="refusal-demo">

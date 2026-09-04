@@ -2,6 +2,7 @@
   "chainId": 102031,
   "network": "Creditcoin Testnet",
   "deployedAt": null,
+  "generatedAt": null,
   "commitSha": null,
   "solcVersion": "0.8.28",
   "dependencies": {
@@ -15,6 +16,8 @@
     "CreditPool": null,
     "AttestLockASC": null
   },
+  "constructorArguments": {},
+  "codeHashes": {},
   "sourceBindings": {
     "chainKey": 1,
     "LockVault": null,

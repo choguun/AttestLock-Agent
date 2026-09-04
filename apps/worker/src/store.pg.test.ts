@@ -96,4 +96,22 @@ describeDatabase('PostgresJobStore', () => {
     `;
     expect(new Set(attempts.map((attempt) => attempt.job_id))).toEqual(new Set([first.id, second.id]));
   });
+
+  it('returns aggregate public statistics without borrower identities', async () => {
+    const firstWallet = Wallet.createRandom().address;
+    const secondWallet = Wallet.createRandom().address;
+    const first = await store.createJob(Wallet.createRandom().privateKey, firstWallet);
+    await store.createJob(Wallet.createRandom().privateKey, firstWallet);
+    const third = await store.createJob(Wallet.createRandom().privateKey, secondWallet);
+    await store.transition(first.id, { status: 'executed' });
+    await store.transition(third.id, { status: 'refused' });
+
+    expect(await store.getPublicStats()).toEqual({
+      totalJobs: 3,
+      uniqueWallets: 2,
+      executedJobs: 1,
+      refusedJobs: 1,
+      failedJobs: 0,
+    });
+  });
 });

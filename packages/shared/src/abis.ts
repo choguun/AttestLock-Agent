@@ -35,10 +35,13 @@ export const attestLockAscAbi = [
 
 export const creditPoolAbi = [
   'function lines(bytes32) view returns (address borrower,uint256 limit,uint256 debt,uint64 maturity,uint256 collateralAmount,uint64 collateralUnlockAt,bytes32 queryId)',
+  'function borrowerProfiles(address) view returns (uint256 lineCount,uint256 totalCreditOpened,uint256 totalBorrowed,uint256 totalRepaid,uint256 outstandingDebt)',
   'function borrow(bytes32 lockId,uint256 amount)',
   'function repay(bytes32 lockId,uint256 amount) returns (uint256 paid)',
   'event CreditLineOpened(bytes32 indexed lockId,address indexed borrower,uint256 limit,uint64 maturity,bytes32 indexed queryId)',
   'event Borrowed(bytes32 indexed lockId,address indexed borrower,uint256 amount,uint256 debt)',
+  'event Repaid(bytes32 indexed lockId,address indexed payer,uint256 amount,uint256 debt)',
+  'event BorrowerProfileUpdated(address indexed borrower,uint256 lineCount,uint256 totalCreditOpened,uint256 totalBorrowed,uint256 totalRepaid,uint256 outstandingDebt)',
 ] as const;
 
 export const mockUsdAbi = [

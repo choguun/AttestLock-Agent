@@ -61,6 +61,13 @@ contract AttestLockASCTest is Test {
         assertTrue(queryId != bytes32(0));
         assertTrue(asc.usedLocks(lockId));
         assertTrue(asc.processedQueries(queryId));
+        (uint256 lineCount, uint256 creditOpened, uint256 borrowed, uint256 repaid, uint256 outstanding) =
+            pool.borrowerProfiles(borrower);
+        assertEq(lineCount, 1);
+        assertEq(creditOpened, 100e6);
+        assertEq(borrowed, 0);
+        assertEq(repaid, 0);
+        assertEq(outstanding, 0);
     }
 
     function testQueryIdPackingMatchesOfficialASCBaseLayout() external {
@@ -80,6 +87,9 @@ contract AttestLockASCTest is Test {
         (address recordedBorrower,,,,,,) = pool.lines(lockId);
         assertEq(recordedBorrower, address(0));
         assertFalse(asc.usedLocks(lockId));
+        (uint256 lineCount, uint256 creditOpened,,,) = pool.borrowerProfiles(borrower);
+        assertEq(lineCount, 0);
+        assertEq(creditOpened, 0);
     }
 
     function testRejectsFailedReceipt() external {
@@ -203,6 +213,7 @@ contract AttestLockASCTest is Test {
         vm.stopPrank();
         (,, debt,,,,,) = _lineParts(lockId);
         assertEq(debt, 0);
+        _assertProfile(1, 100e6, 50e6, 50e6, 0);
     }
 
     function testPoolOpenLineOnlyASC() external {
@@ -289,6 +300,7 @@ contract AttestLockASCTest is Test {
         vm.stopPrank();
         (,, uint256 debt,,,,) = pool.lines(lockId);
         assertEq(debt, 0);
+        _assertProfile(1, 100e6, 20e6, 20e6, 0);
     }
 
     function testInsolventPoolCannotCreateDebt() external {
@@ -309,6 +321,9 @@ contract AttestLockASCTest is Test {
         emptyPool.borrow(lockId, 1e6);
         (,, uint256 debt,,,,) = emptyPool.lines(lockId);
         assertEq(debt, 0);
+        (,, uint256 borrowed,, uint256 outstanding) = emptyPool.borrowerProfiles(borrower);
+        assertEq(borrowed, 0);
+        assertEq(outstanding, 0);
     }
 
     function testFuzzDebtNeverExceedsLimit(uint96 requested) external {
@@ -321,6 +336,49 @@ contract AttestLockASCTest is Test {
         pool.borrow(lockId, amount);
         (, uint256 limit, uint256 debt,,,,) = pool.lines(lockId);
         assertLe(debt, limit);
+        (,, uint256 totalBorrowed, uint256 totalRepaid, uint256 outstanding) = pool.borrowerProfiles(borrower);
+        assertEq(totalBorrowed - totalRepaid, outstanding);
+        assertEq(outstanding, debt);
+    }
+
+    function testBorrowerProfileAggregatesMultipleLinesAndCapsExcessRepayment() external {
+        bytes memory first = _validEncodedTx();
+        _mockVerifier(first, true, 0);
+        _execute(first, 1);
+
+        bytes32 secondLock = keccak256("lock-2");
+        bytes memory second = _encodedLockTx(
+            1, sourceVault, sourceToken, 300e6, uint64(block.timestamp + 14 days), secondLock
+        );
+        vm.clearMockedCalls();
+        _mockVerifier(second, true, 1);
+        _execute(second, 1);
+
+        vm.startPrank(borrower);
+        pool.borrow(lockId, 40e6);
+        pool.borrow(secondLock, 60e6);
+        asset.approve(address(pool), 200e6);
+        pool.repay(lockId, 100e6);
+        vm.stopPrank();
+
+        _assertProfile(2, 250e6, 100e6, 40e6, 60e6);
+    }
+
+    function _assertProfile(
+        uint256 expectedLines,
+        uint256 expectedCredit,
+        uint256 expectedBorrowed,
+        uint256 expectedRepaid,
+        uint256 expectedOutstanding
+    ) internal view {
+        (uint256 lines_, uint256 credit, uint256 borrowed, uint256 repaid, uint256 outstanding) =
+            pool.borrowerProfiles(borrower);
+        assertEq(lines_, expectedLines);
+        assertEq(credit, expectedCredit);
+        assertEq(borrowed, expectedBorrowed);
+        assertEq(repaid, expectedRepaid);
+        assertEq(outstanding, expectedOutstanding);
+        assertEq(borrowed - repaid, outstanding);
     }
 
     function _validEncodedTx() internal view returns (bytes memory) {

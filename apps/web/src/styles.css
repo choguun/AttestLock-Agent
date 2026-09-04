@@ -334,6 +334,37 @@ h2 {
 .microcopy code {
   color: var(--mint);
 }
+.credit-profile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+.credit-profile div {
+  min-width: 0;
+  padding: 11px;
+  background: #0b0e0c;
+}
+.credit-profile div:last-child {
+  grid-column: 1 / -1;
+}
+.credit-profile span,
+.credit-profile strong {
+  display: block;
+}
+.credit-profile span {
+  color: #758079;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.credit-profile strong {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
 .timeline {
   list-style: none;
   padding: 28px 4px 22px;
@@ -428,6 +459,33 @@ h2 {
   grid-row: 1;
   grid-column: 1;
 }
+.protocol-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--line);
+  gap: 1px;
+}
+.protocol-stats div {
+  padding: 18px;
+  background: #0b0e0c;
+}
+.protocol-stats span,
+.protocol-stats strong {
+  display: block;
+}
+.protocol-stats span {
+  color: #758079;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.protocol-stats strong {
+  margin-top: 8px;
+  color: var(--lime);
+  font-size: 18px;
+}
 .refusal-demo {
   margin: 44px 0;
   border: 1px solid #49302e;
@@ -484,6 +542,9 @@ footer {
   .workspace {
     grid-template-columns: 1fr;
   }
+  .protocol-stats {
+    grid-template-columns: 1fr 1fr;
+  }
   .panel {
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -516,6 +577,9 @@ footer {
     padding: 22px;
   }
   .action-grid {
+    grid-template-columns: 1fr;
+  }
+  .protocol-stats {
     grid-template-columns: 1fr;
   }
   .refusal-demo {

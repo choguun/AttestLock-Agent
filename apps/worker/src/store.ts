@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Challenge, Job, JobEvidence, JobStatus } from '@attestlock/shared';
+import type { Challenge, Job, JobEvidence, JobStatus, PublicStats } from '@attestlock/shared';
 import { buildQueueAuthorization, CHALLENGE_TTL_SECONDS, explainStatus } from '@attestlock/shared';
 import postgres, { type Sql } from 'postgres';
 import { migrations } from './migrations.js';
@@ -30,6 +30,7 @@ export interface JobStore {
   createJob(txHash: string, borrower: string): Promise<Job>;
   getJob(id: string): Promise<Job | null>;
   listJobs(borrower?: string): Promise<Job[]>;
+  getPublicStats(): Promise<Omit<PublicStats, 'generatedAt' | 'latestAttestedHeight'>>;
   claimNextRunnable(now?: Date): Promise<Job | null>;
   transition(id: string, input: TransitionInput): Promise<Job>;
   close(): Promise<void>;
@@ -263,6 +264,34 @@ export class PostgresJobStore implements JobStore {
     return rows.map(toJob);
   }
 
+  async getPublicStats(): Promise<Omit<PublicStats, 'generatedAt' | 'latestAttestedHeight'>> {
+    const rows = await this.sql<
+      Array<{
+        total_jobs: number;
+        unique_wallets: number;
+        executed_jobs: number;
+        refused_jobs: number;
+        failed_jobs: number;
+      }>
+    >`
+      select
+        count(*)::int as total_jobs,
+        count(distinct borrower)::int as unique_wallets,
+        count(*) filter (where status = 'executed')::int as executed_jobs,
+        count(*) filter (where status = 'refused')::int as refused_jobs,
+        count(*) filter (where status = 'failed')::int as failed_jobs
+      from jobs
+    `;
+    const row = rows[0]!;
+    return {
+      totalJobs: row.total_jobs,
+      uniqueWallets: row.unique_wallets,
+      executedJobs: row.executed_jobs,
+      refusedJobs: row.refused_jobs,
+      failedJobs: row.failed_jobs,
+    };
+  }
+
   async claimNextRunnable(now = new Date()): Promise<Job | null> {
     return this.sql.begin(async (sql) => {
       const rows = await sql<Array<JobRow>>`
@@ -477,6 +506,17 @@ export class MemoryJobStore implements JobStore {
     return [...this.jobs.values()]
       .filter((job) => !borrower || job.borrower === borrower)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async getPublicStats(): Promise<Omit<PublicStats, 'generatedAt' | 'latestAttestedHeight'>> {
+    const jobs = [...this.jobs.values()];
+    return {
+      totalJobs: jobs.length,
+      uniqueWallets: new Set(jobs.map((job) => job.borrower)).size,
+      executedJobs: jobs.filter((job) => job.status === 'executed').length,
+      refusedJobs: jobs.filter((job) => job.status === 'refused').length,
+      failedJobs: jobs.filter((job) => job.status === 'failed').length,
+    };
   }
 
   async claimNextRunnable(now = new Date()): Promise<Job | null> {

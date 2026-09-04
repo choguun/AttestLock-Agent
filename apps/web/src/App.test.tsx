@@ -9,6 +9,8 @@ describe('AttestLock judge flow', () => {
     expect(screen.getByText('Maximum credit').parentElement).toHaveTextContent('— mUSD');
     expect(screen.getByRole('button', { name: 'Lock + prove' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Prove it fails' })).toBeDisabled();
+    expect(screen.getByLabelText('Creditcoin borrower profile')).toHaveTextContent('Proven lines—');
+    expect(screen.getByLabelText('Public protocol activity')).toHaveTextContent('Authorized wallets—');
   });
 
   it('exposes labelled transaction controls and a live status region', () => {

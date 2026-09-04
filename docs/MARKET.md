@@ -15,12 +15,18 @@ The first user is a testnet lending or risk team that wants to extend credit aga
 
 AttestLock does not claim that proof alone solves liquidation. The product value today is verifiable origination; authenticated repayment release and default handling require Attestcoin writability or another explicit source-control mechanism.
 
+## Creditcoin-native value
+
+Creditcoin's [Credal case study](https://creditcoin.org/Credal) presents authenticated loan transactions and accumulated on-chain credit history as infrastructure for future financial access. AttestLock contributes a deliberately smaller primitive: a profile of proof-opened lines, real draws, repayments, and outstanding debt on Creditcoin. It is evidence for later risk modules, not a score or a promise of repayment.
+
 ## Adoption loop
 
-1. Publish a five-minute integration path and a reusable collateral-event schema.
-2. Recruit three Creditcoin testnet lending or risk builders for structured feedback.
-3. Measure wallet connection, successful lock, proof completion time, line opening, and borrower draw conversion.
-4. Add collateral adapters only after one end-to-end policy is reliable and observable.
-5. Feed proof-backed repayment history into Creditcoin-native risk modules.
+1. Use the [five-minute onboarding path](ONBOARDING.md) and reusable collateral-event schema.
+2. Measure the aggregate public funnel: authorized wallet → proof job → execution/refusal. Do not publish wallet lists.
+3. Measure wallet connection and borrower-draw conversion only after privacy-safe product analytics exist.
+4. Add collateral adapters only after one live end-to-end policy is reliable and observable.
+5. Feed proof-backed draw and repayment history into Creditcoin-native risk modules.
 
 The ecosystem loop is direct: collateral activity from external chains creates verifiable Creditcoin credit lines, transactions, borrowers, and repayment history without requiring the asset itself to migrate.
+
+See [competitive positioning](COMPETITIVE.md) for a dated, primary-source comparison with current BUIDL CTC projects. External interviews and outreach are outside this submission; the lack of customer validation remains explicit.

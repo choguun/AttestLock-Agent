@@ -114,6 +114,14 @@ export interface CreditLineView {
   collateralUnlockAt: number;
 }
 
+export interface BorrowerProfileView {
+  lineCount: number;
+  totalCreditOpened: string;
+  totalBorrowed: string;
+  totalRepaid: string;
+  outstandingDebt: string;
+}
+
 export function canBorrowLine(
   address: string | undefined,
   chainId: number | undefined,
@@ -141,6 +149,21 @@ export async function readCreditLine(signer: JsonRpcSigner, lockId: string): Pro
     maturity: Number(line.maturity),
     collateralAmount: formatUnits(line.collateralAmount, 6),
     collateralUnlockAt: Number(line.collateralUnlockAt),
+  };
+}
+
+export async function readBorrowerProfile(
+  signer: JsonRpcSigner,
+  borrower: string
+): Promise<BorrowerProfileView> {
+  const pool = new Contract(config.creditPoolAddress, creditPoolAbi, signer);
+  const profile = await pool.getFunction('borrowerProfiles')(borrower);
+  return {
+    lineCount: Number(profile.lineCount),
+    totalCreditOpened: formatUnits(profile.totalCreditOpened, 6),
+    totalBorrowed: formatUnits(profile.totalBorrowed, 6),
+    totalRepaid: formatUnits(profile.totalRepaid, 6),
+    outstandingDebt: formatUnits(profile.outstandingDebt, 6),
   };
 }
 

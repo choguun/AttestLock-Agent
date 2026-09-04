@@ -8,12 +8,58 @@ import {
   type JobEvidence,
   type JobStatus,
 } from '@attestlock/shared';
-import { proofProvider } from '@gluwa/usc-sdk';
+import { chainInfo, proofProvider } from '@gluwa/usc-sdk';
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
 import type { WorkerConfig } from './env.js';
 import { RefusedError, TransientError, errorMessage } from './errors.js';
 import type { ChainAdapter, ExecutionResult } from './processor.js';
 import { SourceLockValidator } from './source-validator.js';
+import type { ChainReadiness } from './server.js';
+
+export function isSupportedSourceChain(registered: { chainKey: number; chainId: number } | null): boolean {
+  return registered?.chainKey === SEPOLIA_CHAIN_KEY && registered.chainId === SEPOLIA_CHAIN_ID;
+}
+
+export function isActiveAttestation(latest: { exists: boolean; height: number }): boolean {
+  return latest.exists && latest.height > 0;
+}
+
+export function isRelayerFunded(balance: bigint, minimumBalance: bigint): boolean {
+  return balance >= minimumBalance;
+}
+
+export function isProofBuilderReady(
+  payload: unknown,
+  latestChainHeight: number | null = null,
+  maxLagBlocks = 500
+): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const height = (payload as { attestedHeight?: unknown }).attestedHeight;
+  return (
+    typeof height === 'number' &&
+    Number.isSafeInteger(height) &&
+    height > 0 &&
+    (latestChainHeight === null || height + maxLagBlocks >= latestChainHeight)
+  );
+}
+
+export interface AttestationProgress {
+  height: number;
+  advancedAt: number;
+}
+
+export function observeAttestationProgress(
+  latest: { exists: boolean; height: number },
+  previous: AttestationProgress | null,
+  now: number,
+  maxStalenessMs: number
+): { active: boolean; progress: AttestationProgress | null } {
+  if (!isActiveAttestation(latest)) return { active: false, progress: previous };
+  if (!previous || latest.height > previous.height) {
+    return { active: true, progress: { height: latest.height, advancedAt: now } };
+  }
+  return { active: now - previous.advancedAt <= maxStalenessMs, progress: previous };
+}
 
 export function proofArguments(proof: proofProvider.ContinuityResponse) {
   return [
@@ -62,6 +108,8 @@ export class AttestcoinChainAdapter implements ChainAdapter {
   private readonly asc: Contract;
   private readonly sourceValidator: SourceLockValidator;
   private readonly proofBuilder: proofProvider.service.ProofBuilder;
+  private readonly chainInfoProvider: chainInfo.PrecompileChainInfoProvider;
+  private attestationProgress: AttestationProgress | null = null;
 
   constructor(private readonly config: WorkerConfig) {
     this.sourceProvider = new JsonRpcProvider(config.SOURCE_CHAIN_RPC_URL);
@@ -74,23 +122,89 @@ export class AttestcoinChainAdapter implements ChainAdapter {
       config.SOURCE_TOKEN_ADDRESS
     );
     this.proofBuilder = new proofProvider.service.ProofBuilder(SEPOLIA_CHAIN_KEY, config.PROOF_BUILDER_URL);
+    // The SDK pins its own ethers copy; both providers implement the same EIP-1193 surface.
+    this.chainInfoProvider = new chainInfo.PrecompileChainInfoProvider(this.creditcoinProvider as never);
   }
 
-  async isReady(): Promise<boolean> {
-    const [sourceNetwork, destinationNetwork, vaultCode, tokenCode, ascCode] = await Promise.all([
-      this.sourceProvider.getNetwork(),
-      this.creditcoinProvider.getNetwork(),
-      this.sourceProvider.getCode(this.config.SOURCE_VAULT_ADDRESS),
-      this.sourceProvider.getCode(this.config.SOURCE_TOKEN_ADDRESS),
-      this.creditcoinProvider.getCode(this.config.ATTESTLOCK_ASC_ADDRESS),
-    ]);
-    return (
-      sourceNetwork.chainId === BigInt(SEPOLIA_CHAIN_ID) &&
-      destinationNetwork.chainId === BigInt(CREDITCOIN_TESTNET_CHAIN_ID) &&
-      vaultCode !== '0x' &&
-      tokenCode !== '0x' &&
-      ascCode !== '0x'
-    );
+  async readiness(): Promise<ChainReadiness> {
+    let sourceRpc = false;
+    let destinationRpc = false;
+    let sourceContracts = false;
+    let destinationContracts = false;
+    let attestcoinChain = false;
+    let activeAttestation = false;
+    let fundedRelayer = false;
+    let latestAttestedHeight: number | null = null;
+
+    try {
+      const [network, vaultCode, tokenCode] = await Promise.all([
+        this.sourceProvider.getNetwork(),
+        this.sourceProvider.getCode(this.config.SOURCE_VAULT_ADDRESS),
+        this.sourceProvider.getCode(this.config.SOURCE_TOKEN_ADDRESS),
+      ]);
+      sourceRpc = network.chainId === BigInt(SEPOLIA_CHAIN_ID);
+      sourceContracts = vaultCode !== '0x' && tokenCode !== '0x';
+    } catch {
+      // Detailed readiness is returned instead of failing the liveness process.
+    }
+
+    try {
+      const [network, ascCode, poolCode, assetCode, registered, latest, balance] = await Promise.all([
+        this.creditcoinProvider.getNetwork(),
+        this.creditcoinProvider.getCode(this.config.ATTESTLOCK_ASC_ADDRESS),
+        this.creditcoinProvider.getCode(this.config.CREDIT_POOL_ADDRESS),
+        this.creditcoinProvider.getCode(this.config.MOCK_USD_ADDRESS),
+        this.chainInfoProvider.getSupportedChainByKey(SEPOLIA_CHAIN_KEY),
+        this.chainInfoProvider.getLatestAttestedHeightAndHash(SEPOLIA_CHAIN_KEY),
+        this.creditcoinProvider.getBalance(this.wallet.address),
+      ]);
+      destinationRpc = network.chainId === BigInt(CREDITCOIN_TESTNET_CHAIN_ID);
+      destinationContracts = ascCode !== '0x' && poolCode !== '0x' && assetCode !== '0x';
+      attestcoinChain = isSupportedSourceChain(registered);
+      const observation = observeAttestationProgress(
+        latest,
+        this.attestationProgress,
+        Date.now(),
+        this.config.MAX_ATTESTATION_STALENESS_MS
+      );
+      this.attestationProgress = observation.progress;
+      activeAttestation = observation.active;
+      latestAttestedHeight = isActiveAttestation(latest) ? latest.height : null;
+      fundedRelayer = isRelayerFunded(balance, BigInt(this.config.MIN_RELAYER_BALANCE_WEI));
+    } catch {
+      // Component booleans remain false and /ready responds 503.
+    }
+
+    let proofBuilder = false;
+    try {
+      const endpoint = new URL(`/api/v1/attested-height/${SEPOLIA_CHAIN_KEY}`, this.config.PROOF_BUILDER_URL);
+      const response = await fetch(endpoint, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      proofBuilder =
+        response.ok &&
+        isProofBuilderReady(
+          await response.json(),
+          latestAttestedHeight,
+          this.config.MAX_PROOF_BUILDER_LAG_BLOCKS
+        );
+    } catch {
+      // A failed public service probe is a readiness failure, not liveness failure.
+    }
+
+    return {
+      checks: {
+        sourceRpc,
+        destinationRpc,
+        sourceContracts,
+        destinationContracts,
+        attestcoinChain,
+        activeAttestation,
+        proofBuilder,
+        fundedRelayer,
+      },
+      latestAttestedHeight,
+    };
   }
 
   async execute(
@@ -106,7 +220,15 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     });
 
     const reconciled = await this.reconcileSubmission(job, fact.lockId);
-    if (reconciled) return { evidence: reconciled };
+    if (reconciled) {
+      return {
+        evidence: {
+          ...reconciled,
+          processingDurationMs:
+            reconciled.processingDurationMs ?? Date.now() - new Date(job.createdAt).getTime(),
+        },
+      };
+    }
 
     try {
       await this.proofBuilder.waitUntilHeightAttested(SEPOLIA_CHAIN_KEY, fact.blockNumber, 15_000, 1_200_000);
@@ -114,7 +236,19 @@ export class AttestcoinChainAdapter implements ChainAdapter {
       throw new TransientError('ATTESTATION_TIMEOUT', errorMessage(error));
     }
 
-    await transition('proving');
+    const latestAttestation = await this.chainInfoProvider
+      .getLatestAttestedHeightAndHash(SEPOLIA_CHAIN_KEY)
+      .catch((error) => {
+        throw new TransientError('ATTESTATION_READ_FAILED', errorMessage(error));
+      });
+    if (!latestAttestation.exists || latestAttestation.height < fact.blockNumber) {
+      throw new TransientError('ATTESTATION_NOT_CONFIRMED', 'The source block is not attested yet.');
+    }
+
+    await transition('proving', {
+      attestedHeight: latestAttestation.height,
+      attestedAt: new Date().toISOString(),
+    });
     let proofResult: proofProvider.ProofResult;
     try {
       proofResult = await this.proofBuilder.getProof(job.txHash);
@@ -130,6 +264,7 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     const proofEvidence: JobEvidence = {
       proofMerkleRoot: proof.merkleProof.root,
       continuityRootCount: proof.continuityProof.roots.length,
+      proofGeneratedAt: new Date().toISOString(),
     };
     await transition('preflight', proofEvidence);
 
@@ -171,6 +306,9 @@ export class AttestcoinChainAdapter implements ChainAdapter {
         evidence: {
           ...proofEvidence,
           creditcoinTxHash: response.hash,
+          creditcoinBlockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed.toString(),
+          processingDurationMs: Date.now() - new Date(job.createdAt).getTime(),
           queryId,
         },
       };
@@ -205,8 +343,11 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     ) {
       return null;
     }
+    const receipt = await this.creditcoinProvider.getTransactionReceipt(log.transactionHash);
     return {
       creditcoinTxHash: log.transactionHash,
+      creditcoinBlockNumber: log.blockNumber,
+      gasUsed: receipt?.gasUsed.toString(),
       lockId,
       queryId: String(parsed.args.queryId),
     };
@@ -223,6 +364,9 @@ export class AttestcoinChainAdapter implements ChainAdapter {
           return {
             creditcoinSubmissionTxHash: submission,
             creditcoinTxHash: submission,
+            creditcoinBlockNumber: receipt.blockNumber,
+            gasUsed: receipt.gasUsed.toString(),
+            processingDurationMs: Date.now() - new Date(job.createdAt).getTime(),
             lockId,
             queryId: this.queryIdFromLogs(receipt.logs),
           };

@@ -8,8 +8,7 @@ import { MockUSDC } from "../src/source/MockUSDC.sol";
 
 contract DeploySource is Script {
     function run() external returns (MockUSDC token, LockVault vault) {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast();
         token = new MockUSDC();
         vault = new LockVault(address(token));
         vm.stopBroadcast();

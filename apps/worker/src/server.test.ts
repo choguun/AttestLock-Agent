@@ -11,6 +11,7 @@ describe('worker API', () => {
     MAX_REQUESTS_PER_MINUTE: 100,
     SOURCE_VAULT_ADDRESS: sourceVault,
     PUBLIC_API_ORIGIN: 'http://localhost:3001',
+    RAILWAY_GIT_COMMIT_SHA: 'test-sha',
   };
   const apps: Awaited<ReturnType<typeof buildServer>>[] = [];
   afterEach(async () => Promise.all(apps.splice(0).map((app) => app.close())));
@@ -113,16 +114,56 @@ describe('worker API', () => {
     apps.push(app);
     expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(200);
+    const stats = await app.inject({ method: 'GET', url: '/api/stats' });
+    expect(stats.statusCode).toBe(200);
+    expect(stats.json()).toMatchObject({
+      totalJobs: 0,
+      uniqueWallets: 0,
+      latestAttestedHeight: 1,
+    });
     expect((await app.inject({ method: 'GET', url: '/api/jobs' })).statusCode).toBe(400);
     expect((await app.inject({ method: 'GET', url: '/api/events' })).statusCode).toBe(400);
   });
 
   it('keeps liveness healthy when configured chains are not ready', async () => {
-    const app = await buildServer(new MemoryJobStore(), config, new InMemoryJobEvents(), async () => false);
+    const app = await buildServer(new MemoryJobStore(), config, new InMemoryJobEvents(), async () => ({
+      checks: {
+        sourceRpc: true,
+        destinationRpc: true,
+        sourceContracts: true,
+        destinationContracts: true,
+        attestcoinChain: false,
+        activeAttestation: false,
+        proofBuilder: true,
+        fundedRelayer: true,
+      },
+      latestAttestedHeight: null,
+    }));
     apps.push(app);
 
     expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
-    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(503);
+    const ready = await app.inject({ method: 'GET', url: '/ready' });
+    expect(ready.statusCode).toBe(503);
+    expect(ready.json()).toMatchObject({
+      status: 'unavailable',
+      version: 'test-sha',
+      latestAttestedHeight: null,
+      checks: { database: true, attestcoinChain: false, activeAttestation: false },
+    });
+  });
+
+  it('publishes aggregate statistics without wallet identifiers', async () => {
+    const store = new MemoryJobStore();
+    const wallet = Wallet.createRandom().address;
+    await store.createJob(`0x${'55'.repeat(32)}`, wallet);
+    await store.createJob(`0x${'66'.repeat(32)}`, wallet);
+    const app = await buildServer(store, config, new InMemoryJobEvents());
+    apps.push(app);
+
+    const response = await app.inject({ method: 'GET', url: '/api/stats' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ totalJobs: 2, uniqueWallets: 1 });
+    expect(response.body).not.toContain(wallet);
   });
 
   it('publishes job events only to the matching wallet', () => {
