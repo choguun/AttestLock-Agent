@@ -402,6 +402,7 @@ contract AttestLockASCTest is Test {
         pool.borrow(lockId, 0);
         vm.expectRevert(CreditPool.InvalidLine.selector);
         pool.repay(keccak256("unknown"), 1);
+        assertEq(pool.available(keccak256("unknown")), 0);
         vm.expectRevert(CreditPool.NoDebt.selector);
         pool.repay(lockId, 1);
 
