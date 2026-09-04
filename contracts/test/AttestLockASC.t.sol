@@ -231,22 +231,23 @@ contract AttestLockASCTest is Test {
         _execute(encodedTx, 1);
 
         vm.prank(borrower);
-        pool.borrow(lockId, 50e6);
-        assertEq(asset.balanceOf(borrower), 50e6);
+        pool.borrow(lockId, 100e6);
+        assertEq(asset.balanceOf(borrower), 100e6);
         (, uint256 limit, uint256 debt, uint64 maturity,,,,) = _lineParts(lockId);
         assertEq(limit, 100e6);
-        assertEq(debt, 50e6);
+        assertEq(debt, 100e6);
+        assertEq(pool.available(lockId), 0);
 
         vm.prank(borrower);
         vm.expectRevert(CreditPool.LimitExceeded.selector);
-        pool.borrow(lockId, 51e6);
+        pool.borrow(lockId, 1);
 
         vm.startPrank(borrower);
         asset.approve(address(pool), 20e6);
         pool.repay(lockId, 20e6);
         vm.stopPrank();
         (,, debt,,,,,) = _lineParts(lockId);
-        assertEq(debt, 30e6);
+        assertEq(debt, 80e6);
 
         vm.warp(maturity);
         vm.prank(borrower);
@@ -254,12 +255,12 @@ contract AttestLockASCTest is Test {
         pool.borrow(lockId, 1);
 
         vm.startPrank(borrower);
-        asset.approve(address(pool), 30e6);
-        pool.repay(lockId, 30e6);
+        asset.approve(address(pool), 80e6);
+        pool.repay(lockId, 80e6);
         vm.stopPrank();
         (,, debt,,,,,) = _lineParts(lockId);
         assertEq(debt, 0);
-        _assertProfile(1, 100e6, 50e6, 50e6, 0);
+        _assertProfile(1, 100e6, 100e6, 100e6, 0);
     }
 
     function testPoolOpenLineOnlyASC() external {
