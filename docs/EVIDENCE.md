@@ -6,9 +6,9 @@ This checklist prevents build output or mocked fixtures from being presented as 
 
 Verified locally on `2026-09-04T17:01:43Z` from branch `codex/hackathon-90-plus` at implementation commit `c1e7f20ad51d93f5e3ad931cf34fe14a2343fe21`:
 
-- `pnpm verify` passed with PostgreSQL enabled: 76 shared, worker, web, and Foundry tests; zero failures and zero skips. The six PostgreSQL cases ran against a disposable local database.
+- `pnpm verify` passed with PostgreSQL enabled: 77 shared, worker, web, and Foundry tests; zero failures and zero skips. The six PostgreSQL cases ran against a disposable local database.
 - Playwright passed two Chromium paths: preview fail-closed plus the mocked wallet lock, authorization, SSE, refresh recovery, profile, borrow, repay, refusal, explorer-link, and accessibility journey.
-- Measured Foundry coverage is 99.33% lines, 98.92% statements, 85.42% branches, and 100% functions, exceeding the enforced 95/93/85/90 floors.
+- Measured Foundry coverage is 99.33% lines, 99.46% statements, 87.50% branches, and 100% functions, exceeding the enforced 95/93/85/90 floors.
 - `forge lint --root contracts` completed with only the expected timestamp-policy warnings for maturity and expiry checks.
 - The production build fails closed unless `VITE_PREVIEW_MODE=true` or a public HTTPS API, all five nonzero contract addresses, and a nonzero known refusal transaction are present.
 - `pnpm audit --prod --audit-level high --ignore-registry-errors` reported no known vulnerabilities.
@@ -56,7 +56,7 @@ This snapshot is repository evidence, not live-chain proof.
 | ----------------------- | ------------------------------------------------------------------------------ |
 | Public repository       | https://github.com/choguun/AttestLock-Agent                                    |
 | Baseline commit         | `b1711566d8af508bea249519ed6ece91fb9d0c10`                                     |
-| Release candidate       | `c1e7f20ad51d93f5e3ad931cf34fe14a2343fe21`                                     |
+| Release candidate       | `3b1987c5f72af7839f93ed69ee1c05f64940674f`                                     |
 | Completion branch/PR    | `codex/hackathon-90-plus` / https://github.com/choguun/AttestLock-Agent/pull/2 |
 | Sepolia deployment      | Pending                                                                        |
 | Creditcoin deployment   | Pending                                                                        |
