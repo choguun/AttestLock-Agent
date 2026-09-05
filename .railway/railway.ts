@@ -10,7 +10,7 @@ export default defineRailway(() => {
     sizeMB: 5000,
   });
   const attestlockWeb = service('attestlock-web', {
-    source: github('https://github.com/choguun/AttestLock-Agent'),
+    source: github('choguun/AttestLock-Agent'),
     build: {
       buildCommand: 'pnpm --filter @attestlock/shared build && pnpm --filter @attestlock/web build',
       buildEnvironment: 'V3',
@@ -32,6 +32,14 @@ export default defineRailway(() => {
       RAILPACK_NODE_VERSION: preserve(),
       RAILPACK_SPA_OUTPUT_DIR: preserve(),
       RAILPACK_STATIC_FILE_ROOT: preserve(),
+      VITE_PREVIEW_MODE: preserve(),
+      VITE_API_URL: preserve(),
+      VITE_MOCK_USDC_ADDRESS: preserve(),
+      VITE_LOCK_VAULT_ADDRESS: preserve(),
+      VITE_CREDIT_POOL_ADDRESS: preserve(),
+      VITE_ATTESTLOCK_ASC_ADDRESS: preserve(),
+      VITE_MOCK_USD_ADDRESS: preserve(),
+      VITE_INVALID_TX_HASH: preserve(),
     },
   });
   const attestlockWorker = service('attestlock-worker', {

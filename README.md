@@ -4,9 +4,9 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: audit hardening is merged with green CI. All five contracts are deployed and verified; a real 100 mUSDC lock, matching ProofBuilder fixture and unused-query tamper revert are recorded. The public site remains a preview while worker deployment is repaired. Successful native origination, hosted wallet flow, post-maturity repayment and videos remain pending. See [live observations](docs/LIVE_TESTNET.md), the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
+> Current status: all five contracts are publicly verified. A real 100 mUSDC lock opened exactly 50 mUSD of credit through native `0x0FD2`; the Railway relayer submitted it. Junk refusal, unused-query tamper and identical-query replay are recorded. The worker and live-configured web pass production smoke. Full hosted-wallet draw, post-maturity repayment and public videos remain acceptance gates. See [live observations](docs/LIVE_TESTNET.md), the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
 
-**Hosted preview:** https://attestlock-web-production.up.railway.app
+**Live testnet app:** https://attestlock-web-production.up.railway.app
 
 ## Why Attestcoin is load-bearing
 
@@ -167,8 +167,8 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 - [Competitive positioning](docs/COMPETITIVE.md)
 - [Five-minute onboarding](docs/ONBOARDING.md)
 - [90-second video script](docs/VIDEO_SCRIPT.md)
-- [Draft six-slide deck — stale measurements; not final evidence (PPTX)](docs/deck/AttestLock-Hackathon-Deck.pptx)
-- [Draft six-slide deck — stale screenshot; not final evidence (PDF)](docs/deck/AttestLock-Hackathon-Deck.pdf)
+- [Six-slide live-origination deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck-live.pptx)
+- [Visually verified live-origination deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-live.pdf)
 
 ## Hackathon timing
 

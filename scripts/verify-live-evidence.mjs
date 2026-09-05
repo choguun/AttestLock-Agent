@@ -9,6 +9,7 @@ import {
 } from 'ethers';
 import { readFile } from 'node:fs/promises';
 import { isExpectedProofRevert } from './proof-revert.mjs';
+import { validateTamperLinkage } from './proof-linkage.mjs';
 
 const addressKeys = [
   'SOURCE_TOKEN_ADDRESS',
@@ -266,20 +267,14 @@ if (validCalldata.toLowerCase() !== proofExecution.transaction.data.toLowerCase(
   throw new Error('Fixture is not the successful proof transaction calldata.');
 if (replayExecution.transaction.data.toLowerCase() !== validCalldata.toLowerCase())
   throw new Error('Query replay must repeat identical successful calldata.');
-const originalArgs = proofInterface.decodeFunctionData('verifyLockAndOpenLine', validCalldata);
-const tamperedArgs = proofInterface.decodeFunctionData(
-  'verifyLockAndOpenLine',
-  tamperedExecution.transaction.data
+const tamperFixture = process.env.TAMPER_PROOF_FIXTURE_FILE
+  ? JSON.parse(await readFile(process.env.TAMPER_PROOF_FIXTURE_FILE, 'utf8'))
+  : fixture;
+const untamperedCalldata = validateTamperLinkage(
+  validCalldata,
+  tamperedExecution.transaction.data,
+  tamperFixture.proofArguments
 );
-// Canonical negative demo: mutate only encoded transaction bytes; query path stays identical.
-const expectedTamper = [...originalArgs];
-expectedTamper[2] = tamperedArgs[2];
-if (
-  originalArgs[2] === tamperedArgs[2] ||
-  proofInterface.encodeFunctionData('verifyLockAndOpenLine', expectedTamper).toLowerCase() !==
-    tamperedExecution.transaction.data.toLowerCase()
-)
-  throw new Error('Tampered evidence must mutate only txBytes of the same unused query.');
 if (
   tamperedExecution.receipt.blockNumber >= proofExecution.receipt.blockNumber ||
   replayExecution.receipt.blockNumber <= proofExecution.receipt.blockNumber
@@ -287,6 +282,15 @@ if (
   throw new Error('Record tamper, valid proof, and replay in separate, ordered blocks.');
 if (await asc.processedQueries(queryId, { blockTag: tamperedExecution.receipt.blockNumber - 1 }))
   throw new Error('Tampered query was already used; replay protection would mask verification.');
+const originalResult = await destination.call({
+  to: addresses.ATTESTLOCK_ASC_ADDRESS,
+  from: tamperedExecution.transaction.from,
+  data: untamperedCalldata,
+  gasLimit: 5_000_000n,
+  blockTag: tamperedExecution.receipt.blockNumber - 1,
+});
+if (proofInterface.decodeFunctionResult('verifyLockAndOpenLine', originalResult)[0] !== true)
+  throw new Error('The unmutated counterpart did not pass native verification before tampering.');
 
 async function requireRevertReason(execution, name) {
   let data;

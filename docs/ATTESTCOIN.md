@@ -69,14 +69,14 @@ A repeated proof fails before line creation. A different proof that contains an 
 
 ## Live evidence
 
-The following must remain blank until verified on live testnets:
+Only the following observed artifacts earn live-integration evidence:
 
-| Evidence                        | Value                     |
-| ------------------------------- | ------------------------- |
-| Sepolia lock transaction        | Pending funded deployment |
-| Proof Builder payload fixture   | Pending attestation       |
-| Creditcoin proof transaction    | Pending funded deployment |
-| Creditcoin borrower transaction | Pending funded deployment |
+| Evidence                        | Value                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sepolia lock transaction        | [100 mUSDC lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)                 |
+| Proof Builder payload fixture   | [Executed native tuple](../fixtures/proofs/creditcoin-executed-2026-09-05.json)                                                            |
+| Creditcoin proof transaction    | [Successful native proof](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9) |
+| Creditcoin borrower transaction | Pending borrower-signed draw                                                                                                               |
 
 Use [EVIDENCE.md](EVIDENCE.md) to capture the sanitized fixture, timestamps, addresses, and explorer links.
 

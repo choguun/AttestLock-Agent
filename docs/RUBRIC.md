@@ -1,30 +1,30 @@
 # Rubric and eligibility ledger
 
-This is an internal equal-weight planning model of five AMA pillars, not organizer scoring or a prediction of winning. Audit baseline: clean main `002546f`, September 5, 2026. Local hardening does not automatically earn live-delivery points.
+This is an internal equal-weight planning model of five AMA pillars, not organizer scoring or a prediction of winning. Audit baseline: clean main `002546f`, September 5, 2026. Updated observation: native origination and live Railway release `8d2c2bf`; local hardening does not automatically earn live-delivery points.
 
-| Pillar                       | Evidence-adjusted baseline |     Target | Evidence needed to earn the target                                                                                |
-| ---------------------------- | -------------------------: | ---------: | ----------------------------------------------------------------------------------------------------------------- |
-| Userbase Expansion           |                      13/20 |      16/20 | Public functional path, five-minute setup, honestly labelled aggregate activity                                   |
-| Technical Alignment          |                      18/20 |      20/20 | Verified contracts, native `0x0FD2` proof, real fixture, immutable bindings                                       |
-| Product Vision & Innovation  |                      17/20 |      19/20 | Auditable fixed-term origination, reusable borrower accounting, credible differentiation from Unbridged and Spark |
-| Execution Capability         |                      16/20 |      20/20 | Hosted worker and wallet flow, crash/replacement recovery, scheduled smoke and public videos                      |
-| Market & Technical Relevance |                      16/20 |      18/20 | Primary-source positioning plus observed protocol usage, without invented validation                              |
-| **Total**                    |                 **80/100** | **93/100** | Re-score only from the release's evidence ledger                                                                  |
+| Pillar                       |   Baseline | Evidence-adjusted now |     Target | Basis and remaining gap                                                                                                                    |
+| ---------------------------- | ---------: | --------------------: | ---------: | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Userbase Expansion           |         13 |                    14 |         16 | Live app/aggregate endpoint and onboarding; no independent users or completed browser onboarding evidence yet                              |
+| Technical Alignment          |         18 |                    20 |         20 | Five verified contracts, successful native `0x0FD2`, real executed tuple, bindings, fail-closed native rejection                           |
+| Product Vision & Innovation  |         17 |                    18 |         19 | Real bounded line and reusable on-chain accounting; borrower draw/repayment demonstration still pending                                    |
+| Execution Capability         |         16 |                    18 |         20 | Green CI, live worker/web, persisted real job, negative receipts and manual production smoke; browser flow, maturity and media still gated |
+| Market & Technical Relevance |         16 |                    17 |         18 | Attributed primary-source competitor/strategy research and observable operator activity; no interviews, pilots or validated adoption       |
+| **Total**                    | **80/100** |            **87/100** | **93/100** | Native execution earns points; future gates do not                                                                                         |
 
-The previous 87/100 claim is withdrawn: it overcredited recovery, operational reliability, and differentiation. The audit-driven branch repairs those gaps, but its code, CI, hosted deployment, and live-chain outcomes remain distinct evidence layers.
+The earlier preview-only 87/100 claim was withdrawn. This new 87/100 estimate has a different evidence basis: actual deployed native origination and healthy hosting. It is still below the target, and no score guarantees placement. See [the dated live ledger](LIVE_TESTNET.md).
 
 ## Hard eligibility
 
 | Requirement                                       | Artifact                                                                 | Current disposition                                                           |
 | ------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Original hackathon work and redistribution rights | Incremental history, MIT original code, attributed dependencies/research | Original code present; historical copied research rights review still pending |
-| Meaningful Attestcoin integration                 | ASC proof gate, official differential harness                            | Code/tests present; native execution pending                                  |
+| Meaningful Attestcoin integration                 | ASC proof gate, official differential harness, actual native receipt     | Verified live proof opened exactly one 50% line                               |
 | Creditcoin testnet deployment                     | Actual manifests and explorer bytecode verification                      | All five deployed/verified from green main; see LIVE_TESTNET.md               |
 | Technical documentation                           | README, architecture, integration, threat model, claim ledger            | Present; active claims reconciled with explicit limits                        |
-| PDF deck or whitepaper                            | Six-slide draft PDF/PPTX                                                 | Draft has stale counts/screenshot; final refresh pending                      |
+| PDF deck or whitepaper                            | Six-slide live-origination PDF/PPTX                                      | Refreshed and visually checked; unfinished gates explicit                     |
 | Prototype video                                   | Public 90-second demonstration                                           | Pending                                                                       |
 
-**Submission readiness: FAIL.** Documentation and a polished preview do not substitute for working deployed integration. All mandatory fields and public links must be checked in a clean browser before submission.
+**Submission readiness: FAIL.** Native integration and deployment are now observed, but the prototype video, final browser/media acceptance and private eligibility fields remain incomplete. All mandatory fields and public links must be checked in a clean browser before submission.
 
 ## Exact evidence map
 

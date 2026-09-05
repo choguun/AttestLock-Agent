@@ -4,7 +4,9 @@ A build, mock proof, faucet transfer, or polished preview is not deployed Attest
 
 ## Audit-driven local verification — September 5, 2026
 
-Audit hardening merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4), main `6aec094ed321675199eaa2ff818e4a719c67a37b`; [merged-main CI 33959893700](https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700) passed. The following 100-test measurements describe that certified deployment commit. Current follow-up branch: `codex/live-testnet-evidence`.
+Audit hardening merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4), main `6aec094ed321675199eaa2ff818e4a719c67a37b`; [merged-main CI 33959893700](https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700) passed. The following 100-test measurements describe that certified Solidity deployment commit. [PR #5](https://github.com/choguun/AttestLock-Agent/pull/5) subsequently passed **107 tests, zero skips, seven browser paths**, merged as `8d2c2bf`, and passed [main CI 33961818287](https://github.com/choguun/AttestLock-Agent/actions/runs/33961818287). Native-receipt follow-up: `codex/live-proof-evidence`.
+
+The native-receipt follow-up passes **111 tests locally, zero skips** (8 script, 1 shared, 56 worker including all 8 PostgreSQL cases, 14 web, 32 Foundry) and **seven browser tests**. New tests bind both real proof fixtures, reject altered query/continuity linkage, and prevent partial judge evidence being labelled complete. Its own PR CI must still pass before merge.
 
 - `pnpm verify`: **100 tests passed, zero skips** with PostgreSQL enabled: 1 shared, 55 worker (including 8 PostgreSQL cases), 13 web, 31 Foundry.
 - `pnpm test:e2e`: **7 Chromium paths passed**, including refresh during approval, lock, borrow, repayment approval, repayment, and proof processing. Wallet/API state is mocked; the separate API suite exercises real HTTP SSE transport.
@@ -15,7 +17,7 @@ Audit hardening merged through [PR #4](https://github.com/choguun/AttestLock-Age
 - `forge lint --root contracts`: only documented block-timestamp warnings for maturity/expiry policy and the invariant time gate.
 - Production configuration tests fail closed on missing/zero live variables. Preview disables writes even with addresses present.
 - Full-history secret and Markdown-link checks passed in merged-main CI. A fresh public clone passed all 100 tests with PostgreSQL (zero skips) and all seven browser paths.
-- The existing PPTX/PDF are **drafts with stale counts, coverage, and preview screenshot text**. They are not final judge evidence.
+- The original `AttestLock-Hackathon-Deck` files are retained as historical drafts. The new `-live` PPTX/PDF replace their stale screenshot/counts with native receipt evidence; all six slides were rendered and visually checked. These remain explicit about pending browser draw, repayment and videos.
 
 ## Hosted observation — September 5, 2026
 
@@ -30,6 +32,8 @@ This is a point-in-time observation, not a future uptime guarantee. Railway prox
 
 **Later September 5 update:** all contracts are deployed/verified, the real source lock and proof fixture exist, and a tampered payload reverted with unchanged state. The capped relayer is sealed in Railway. The worker now has repository source, but its first build selected the legacy root web build and failed startup. This follow-up replaces the three TOML files with an imported, no-op-verified `.railway/railway.ts`. See [LIVE_TESTNET.md](LIVE_TESTNET.md) for exact provenance, transactions and pending acceptance. Failed deployment is not liveness.
 
+**11:26 UTC recovery update (supersedes the hosting failures above):** worker `b63fc834-34b7-4003-a756-dd882f048d77` and live web `95ef618d-c767-44ac-b5a0-5139c5e4203f` run green release `8d2c2bf`. Native origination, junk refusal, tamper and replay are verified. Health/readiness/stats/CORS and exact live bundle configuration passed [manual smoke 33963339337](https://github.com/choguun/AttestLock-Agent/actions/runs/33963339337). Six-hour scheduled smoke is enabled, not yet claimed as successfully scheduled on the final submission release.
+
 ## Gate 1 — deployment provenance
 
 - [x] Deploy MockUSDC and LockVault on Sepolia `11155111`.
@@ -41,45 +45,45 @@ This is a point-in-time observation, not a future uptime guarantee. Railway prox
 
 - [x] Faucet 1,000 mUSDC; approve and lock 100 mUSDC (actual term: 14 days plus approximately one hour).
 - [x] Attest the exact source block; generate and sanitize the real ProofBuilder tuple.
-- [ ] Native `0x0FD2` execution opens exactly one 50 mUSD, seven-day line with the exact borrower/lock/query.
+- [x] Native `0x0FD2` execution opens exactly one 50 mUSD, seven-day line with the exact borrower/lock/query.
 - [ ] The borrower, not the relayer, signs the 50 mUSD draw.
 - [ ] After actual on-chain maturity, repay and confirm borrower accounting `borrowed - repaid == outstandingDebt`.
 
 ## Gate 3 — negative evidence
 
-- [ ] Real junk API job, matching source hash and deterministic refusal; no funded submission.
+- [x] Real junk API job, matching source hash and deterministic refusal; no funded submission.
 - [x] Broadcast tampered proof **while its query is unused**, verify exact native `Error("Merkle proof validation failed")` and unchanged state. The precompile reverts rather than returning false; the checker recognizes only this exact native error or the ASC false-return error.
-- [ ] Submit the valid proof, then broadcast its identical calldata and verify exact query-replay rejection.
+- [x] Submit the valid proof, then broadcast its identical calldata and verify exact query-replay rejection.
 - [x] Duplicate-lock protection is tested by the deterministic Foundry harness. Do not fabricate a second distinct live proof for the immutable vault's same lock.
 
 The live checker rejects arbitrary reverted transactions: it checks calldata mutation, timing/order, receipt/event linkage, signer identity, amounts, exact maturity, replay state, token balances and profile/line invariance. It requires all transaction IDs, the real fixture and the actual junk refusal job.
 
 ## Gate 4 — public release
 
-- [ ] Hosted live web, worker liveness/readiness/current stats, CORS and exact bundle addresses.
+- [x] Hosted live web, worker liveness/readiness/current stats, CORS and exact bundle addresses.
 - [ ] One successful six-hour scheduled smoke against the submission SHA.
 - [ ] Public 90-second video and uncut technical appendix, with explicit time-cut/previous-example disclosures.
-- [ ] Refreshed and visually verified six-slide PDF/PPTX with real evidence and QR links.
+- [x] Refreshed and visually verified six-slide PDF/PPTX with real evidence and QR links; refresh pending fields again after their evidence exists.
 - [ ] All repository, explorer, app, worker, deck and video links open logged out.
 - [ ] User privately completes eligibility and personal DoraHacks fields.
 
 ## Artifact table
 
-| Artifact                                             | Reference / disposition                                                                                                                                                   |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public repository                                    | [choguun/AttestLock-Agent](https://github.com/choguun/AttestLock-Agent)                                                                                                   |
-| Audited main                                         | `002546f3bce6412fc4a53db72e611b4064f9e8ef`                                                                                                                                |
-| Audited main CI                                      | [33900862465](https://github.com/choguun/AttestLock-Agent/actions/runs/33900862465)                                                                                       |
-| Current completion PR / release CI                   | [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4), [CI 33959893700](https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700); follow-up CI pending |
-| Source/destination manifests                         | [Sepolia](../deployments/sepolia.json), [Creditcoin](../deployments/creditcoin-testnet.json); `.example.json` remains templates                                           |
-| Real proof fixture and proof/draw/repayment receipts | [Real proof input](../fixtures/proofs/sepolia-lock-2026-09-05.json); successful proof/draw/repayment pending                                                              |
-| Hosted preview                                       | [Railway preview](https://attestlock-web-production.up.railway.app)                                                                                                       |
-| Worker                                               | Repository connected; first build failed, corrected configuration awaiting deploy                                                                                         |
-| Judge PDF/PPTX                                       | Existing draft, superseded for submission evidence until refreshed                                                                                                        |
-| Public videos                                        | Pending                                                                                                                                                                   |
+| Artifact                                             | Reference / disposition                                                                                                                                                                                                          |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public repository                                    | [choguun/AttestLock-Agent](https://github.com/choguun/AttestLock-Agent)                                                                                                                                                          |
+| Audited main                                         | `002546f3bce6412fc4a53db72e611b4064f9e8ef`                                                                                                                                                                                       |
+| Audited main CI                                      | [33900862465](https://github.com/choguun/AttestLock-Agent/actions/runs/33900862465)                                                                                                                                              |
+| Current completion PR / release CI                   | [PR #5](https://github.com/choguun/AttestLock-Agent/pull/5), [CI 33961818287](https://github.com/choguun/AttestLock-Agent/actions/runs/33961818287); native-receipt follow-up CI pending                                         |
+| Source/destination manifests                         | [Sepolia](../deployments/sepolia.json), [Creditcoin](../deployments/creditcoin-testnet.json); `.example.json` remains templates                                                                                                  |
+| Real proof fixture and proof/draw/repayment receipts | [Executed tuple](../fixtures/proofs/creditcoin-executed-2026-09-05.json), [native transcript](../evidence/native-origination-2026-09-05.json); draw/repayment pending                                                            |
+| Hosted live app                                      | [Railway app](https://attestlock-web-production.up.railway.app)                                                                                                                                                                  |
+| Worker                                               | [Liveness](https://attestlock-worker-production.up.railway.app/health), [readiness](https://attestlock-worker-production.up.railway.app/ready), [aggregate stats](https://attestlock-worker-production.up.railway.app/api/stats) |
+| Judge PDF/PPTX                                       | [Live-origination PDF](deck/AttestLock-Hackathon-Deck-live.pdf), [editable PPTX](deck/AttestLock-Hackathon-Deck-live.pptx); six-slide package/layout/import checks passed and every PDF page visually inspected                  |
+| Public videos                                        | Pending                                                                                                                                                                                                                          |
 
 ## Sanitization and publication
 
-Only proof input bytes and public-chain facts belong in Git. Keep RPC tokens, database URLs, private keys, signed queue authorizations, raw signed outbox rows, Keychain passwords and Railway sealed-variable output out. Publish the successful strict checker JSON as `apps/web/public/evidence/verified.json` for the wallet-free judge view; it currently has no verified fixture.
+Only proof input bytes and public-chain facts belong in Git. Keep RPC tokens, database URLs, private keys, signed queue authorizations, raw signed outbox rows, Keychain passwords and Railway sealed-variable output out. The wallet-free `apps/web/public/evidence/verified.json` is explicitly marked `native-origination`: its generator verifies historical native counterpart, exact line/event, both negative reasons and unchanged state. It does not claim draw or repayment. Replace it with the full strict checker output only after those gates pass; a partial snapshot cannot be relabelled complete by the UI parser.
 
 All unchecked live gates remain unearned regardless of local test counts or internal rubric targets.
