@@ -26,6 +26,7 @@ jobs:
       INVALID_SOURCE_TX_HASH: ${{ vars.INVALID_SOURCE_TX_HASH }}
       RELAYER_ADDRESS: ${{ vars.RELAYER_ADDRESS }}
       MIN_RELAYER_BALANCE_WEI: ${{ vars.MIN_RELAYER_BALANCE_WEI }}
+      EXPECTED_COMMIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

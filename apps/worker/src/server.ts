@@ -12,6 +12,7 @@ import { getAddress, isAddress, isHexString, verifyTypedData } from 'ethers';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { WorkerConfig } from './env.js';
+import { bounded } from './timeouts.js';
 import {
   ChallengeAuthorizationError,
   JobQuotaExceededError,
@@ -58,15 +59,6 @@ export interface ChainReadiness {
   proofBuilderAttestedHeight: number | null;
 }
 
-const emptyProtocolStats: ProtocolStats = {
-  linesOpened: 0,
-  borrowersWhoDrew: 0,
-  totalCreditOpenedAtomic: '0',
-  totalBorrowedAtomic: '0',
-  totalRepaidAtomic: '0',
-  outstandingDebtAtomic: '0',
-};
-
 const healthyChainReadiness: ChainReadiness = {
   checks: {
     sourceRpc: true,
@@ -94,12 +86,20 @@ export async function buildServer(
     | 'SOURCE_VAULT_ADDRESS'
     | 'PUBLIC_API_ORIGIN'
     | 'RAILWAY_GIT_COMMIT_SHA'
-  >,
+  > &
+    Partial<Pick<WorkerConfig, 'TRUSTED_PROXY_CIDRS'>>,
   events: JobEvents,
-  chainReadiness: () => Promise<ChainReadiness> = async () => healthyChainReadiness,
-  protocolStats: () => Promise<ProtocolStats> = async () => emptyProtocolStats
+  chainReadiness: () => Promise<ChainReadiness> = async () => {
+    throw new Error('Chain observer not configured');
+  },
+  protocolStats: () => Promise<ProtocolStats & { asOfBlock?: number }> = async () => {
+    throw new Error('Protocol observer not configured');
+  }
 ): Promise<FastifyInstance> {
-  const app = Fastify({ logger: true });
+  const trustedProxyCidrs = config.TRUSTED_PROXY_CIDRS?.split(',')
+    .map((cidr) => cidr.trim())
+    .filter(Boolean);
+  const app = Fastify({ logger: true, trustProxy: trustedProxyCidrs?.length ? trustedProxyCidrs : false });
   await app.register(cors, {
     origin: config.CORS_ORIGINS.split(',').map((origin) => origin.trim()),
     methods: ['GET', 'POST'],
@@ -109,10 +109,24 @@ export async function buildServer(
     timeWindow: '1 minute',
   });
 
-  app.get('/health', async () => ({ status: 'ok', service: 'attestlock-worker' }));
-  app.get('/ready', async (_request, reply) => {
-    const database = await store.ping().catch(() => false);
-    const chain = await chainReadiness().catch(() => ({
+  app.setErrorHandler((error, _request, reply) => {
+    const status = (error as { statusCode?: number }).statusCode;
+    reply.code(status === 429 ? 429 : status === 400 ? 400 : 503).send({
+      error:
+        status === 429
+          ? 'Request quota exceeded.'
+          : status === 400
+            ? 'Malformed request.'
+            : 'Service temporarily unavailable.',
+    });
+  });
+  app.get('/health', { config: { rateLimit: false } }, async () => ({
+    status: 'ok',
+    service: 'attestlock-worker',
+  }));
+  app.get('/ready', { config: { rateLimit: false } }, async (_request, reply) => {
+    const database = await bounded(store.ping()).catch(() => false);
+    const chain = await bounded(chainReadiness()).catch(() => ({
       checks: Object.fromEntries(
         Object.keys(healthyChainReadiness.checks).map((key) => [key, false])
       ) as ChainReadiness['checks'],
@@ -135,21 +149,39 @@ export async function buildServer(
   });
 
   let statsCache: { expiresAt: number; value: PublicStats } | null = null;
+  let statsPending: Promise<PublicStats> | null = null;
+  let lastProtocol: { value: ProtocolStats & { asOfBlock?: number }; at: string } | null = null;
   app.get('/api/stats', async () => {
     if (statsCache && statsCache.expiresAt > Date.now()) return statsCache.value;
-    const [counts, chain, protocol] = await Promise.all([
-      store.getPublicStats(),
-      chainReadiness().catch(() => ({ ...healthyChainReadiness, latestAttestedHeight: null })),
-      protocolStats().catch(() => emptyProtocolStats),
-    ]);
-    const value: PublicStats = {
-      generatedAt: new Date().toISOString(),
-      ...counts,
-      ...protocol,
-      latestAttestedHeight: chain.latestAttestedHeight,
-    };
-    statsCache = { expiresAt: Date.now() + 60_000, value };
-    return value;
+    if (statsPending) return statsPending;
+    statsPending = (async () => {
+      const [counts, chain, protocol] = await Promise.all([
+        bounded(store.getPublicStats()),
+        bounded(chainReadiness()).catch(() => null),
+        bounded(protocolStats()).catch(() => null),
+      ]);
+      if (protocol) lastProtocol = { value: protocol, at: new Date().toISOString() };
+      const value: PublicStats = {
+        generatedAt: new Date().toISOString(),
+        ...counts,
+        linesOpened: null,
+        borrowersWhoDrew: null,
+        totalCreditOpenedAtomic: null,
+        totalBorrowedAtomic: null,
+        totalRepaidAtomic: null,
+        outstandingDebtAtomic: null,
+        ...lastProtocol?.value,
+        protocolStatus: protocol ? 'current' : lastProtocol ? 'stale' : 'unavailable',
+        protocolObservedAt: lastProtocol?.at ?? null,
+        asOfBlock: lastProtocol?.value.asOfBlock ?? null,
+        latestAttestedHeight: chain?.latestAttestedHeight ?? null,
+      };
+      statsCache = { expiresAt: Date.now() + 60_000, value };
+      return value;
+    })().finally(() => {
+      statsPending = null;
+    });
+    return statsPending;
   });
 
   app.post('/api/challenges', async (request, reply) => {
@@ -229,29 +261,47 @@ export async function buildServer(
     return store.listJobs(getAddress(parsed.data.wallet));
   });
 
+  const connections = new Map<string, number>();
+  const closeStreams = new Set<() => void>();
+  app.addHook('preClose', async () => {
+    for (const close of closeStreams) close();
+  });
   app.get('/api/events', async (request, reply) => {
     const parsed = listQuery.safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     const wallet = getAddress(parsed.data.wallet);
     const origins = config.CORS_ORIGINS.split(',').map((origin) => origin.trim());
     const requestOrigin = request.headers.origin;
-    const responseOrigin = requestOrigin && origins.includes(requestOrigin) ? requestOrigin : origins[0];
+    if (requestOrigin && !origins.includes(requestOrigin))
+      return reply.code(403).send({ error: 'Origin not allowed.' });
+    const connectionKey = request.ip;
+    if ((connections.get(connectionKey) ?? 0) >= 5 || closeStreams.size >= 100)
+      return reply.code(429).send({ error: 'Too many event streams.' });
+    connections.set(connectionKey, (connections.get(connectionKey) ?? 0) + 1);
     reply.hijack();
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': responseOrigin ?? 'null',
+      ...(requestOrigin ? { 'Access-Control-Allow-Origin': requestOrigin } : {}),
+      Vary: 'Origin',
     });
     reply.raw.write(': connected\n\n');
     const unsubscribe = events.subscribe(wallet, (job) => {
-      reply.raw.write(`event: job\ndata: ${JSON.stringify(job)}\n\n`);
+      if (!reply.raw.write(`event: job\ndata: ${JSON.stringify(job)}\n\n`)) close();
     });
     const heartbeat = setInterval(() => reply.raw.write(': heartbeat\n\n'), 20_000);
-    request.raw.on('close', () => {
+    const close = () => {
+      if (!closeStreams.delete(close)) return;
       clearInterval(heartbeat);
       unsubscribe();
-    });
+      const remaining = (connections.get(connectionKey) ?? 1) - 1;
+      if (remaining) connections.set(connectionKey, remaining);
+      else connections.delete(connectionKey);
+      reply.raw.end();
+    };
+    closeStreams.add(close);
+    reply.raw.on('close', close);
   });
 
   return app;

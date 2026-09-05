@@ -14,7 +14,7 @@ function selector(signature: string) {
   return id(signature).slice(0, 10);
 }
 
-async function installWallet(page: Page) {
+async function installWallet(page: Page, hold = '', initialDebt = 0) {
   const lockEvent = new Interface([
     'event CollateralLocked(bytes32 indexed lockId,address indexed borrower,address indexed token,uint256 amount,uint64 unlockAt)',
   ]).encodeEventLog('CollateralLocked', [
@@ -38,13 +38,28 @@ async function installWallet(page: Page) {
       ),
   };
   await page.addInitScript(
-    ({ account, collateralVault, creditPool, event, calls, values }) => {
-      let chainId = 11_155_111;
-      let nonce = 0;
-      let debt = 0;
-      let borrowed = 0;
+    ({ account, collateralVault, creditPool, event, calls, values, hold, initialDebt }) => {
+      const previous = JSON.parse(localStorage.getItem('attestlock.mockchain') ?? 'null');
+      let chainId = previous?.chainId ?? 11_155_111;
+      let nonce = previous?.nonce ?? 0;
+      let debt = previous?.debt ?? initialDebt;
+      let borrowed = previous?.borrowed ?? initialDebt;
+      let allowance = previous?.allowance ?? 0;
+      let held = previous?.held ?? hold;
       const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
-      const transactions = new Map<string, { from: string; to: string; input: string; nonce: number }>();
+      const transactions = new Map<
+        string,
+        { from: string; to: string; input: string; nonce: number; mined?: boolean }
+      >(previous?.transactions ?? []);
+      const save = () =>
+        localStorage.setItem(
+          'attestlock.mockchain',
+          JSON.stringify({ chainId, nonce, debt, borrowed, allowance, held, transactions: [...transactions] })
+        );
+      (window as unknown as { __mine(): void }).__mine = () => {
+        held = '';
+        save();
+      };
 
       function hex(value: number | bigint) {
         return `0x${BigInt(value).toString(16)}`;
@@ -92,6 +107,7 @@ async function installWallet(page: Page) {
           if (method === 'wallet_switchEthereumChain' || method === 'wallet_addEthereumChain') {
             const requested = Number((params[0] as { chainId: string }).chainId);
             chainId = requested;
+            save();
             for (const listener of listeners.get('chainChanged') ?? []) listener(hex(chainId));
             return null;
           }
@@ -109,6 +125,7 @@ async function installWallet(page: Page) {
               return debt === 0 ? values.profileInitial : values.profileBorrowed;
             }
             if (call === calls.balance) return values.balance;
+            if (call === calls.allowance) return allowance ? values.balance : values.zero;
             return '0x';
           }
           if (method === 'eth_sendTransaction') {
@@ -116,19 +133,25 @@ async function installWallet(page: Page) {
             const hash = `0x${(++nonce).toString(16).padStart(64, '0')}`;
             transactions.set(hash, { ...tx, input: tx.data, nonce: nonce - 1 });
             const call = tx.data.slice(0, 10);
-            if (call === calls.borrow) {
-              debt = 50_000_000;
-              borrowed = 50_000_000;
-            }
-            if (call === calls.repay) {
-              debt = 0;
-            }
+            void call;
+            save();
             return hash;
           }
           if (method === 'eth_getTransactionByHash') return transaction(params[0] as string);
           if (method === 'eth_getTransactionReceipt') {
             const hash = params[0] as string;
             const tx = transactions.get(hash)!;
+            if (!tx || (held && tx.input.startsWith(held))) return null;
+            if (!tx.mined) {
+              if (tx.input.startsWith(calls.borrow)) {
+                debt = 50_000_000;
+                borrowed += 50_000_000;
+              }
+              if (tx.input.startsWith(calls.repay)) debt = 0;
+              if (tx.input.startsWith(calls.approve)) allowance = 100_000_000;
+              tx.mined = true;
+              save();
+            }
             const isLock = tx.input.slice(0, 10) === calls.lock;
             return {
               transactionHash: hash,
@@ -200,6 +223,8 @@ async function installWallet(page: Page) {
     },
     {
       account: wallet,
+      hold,
+      initialDebt,
       collateralVault: vault,
       creditPool: pool,
       event: lockEvent,
@@ -210,9 +235,12 @@ async function installWallet(page: Page) {
         lock: selector('lock(uint256,uint64)'),
         profile: selector('borrowerProfiles(address)'),
         repay: selector('repay(bytes32,uint256)'),
+        approve: selector('approve(address,uint256)'),
+        allowance: selector('allowance(address,address)'),
       },
       values: {
         balance: encoded.balance,
+        zero: AbiCoder.defaultAbiCoder().encode(['uint256'], [0n]),
         line: [encoded.line(0n), encoded.line(50_000_000n)],
         profileInitial: encoded.profile(0n, 0n, 0n),
         profileBorrowed: encoded.profile(50_000_000n, 0n, 50_000_000n),
@@ -259,8 +287,7 @@ function job(txHash: string, status: 'queued' | 'proving' | 'executed' | 'refuse
   };
 }
 
-async function mockApi(page: Page) {
-  const jobs: ReturnType<typeof job>[] = [];
+async function mockApi(page: Page, jobs: ReturnType<typeof job>[] = []) {
   await page.route('http://127.0.0.1:4301/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -364,7 +391,7 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await expect(page.getByLabel('Public protocol activity')).toContainText('11,630,230');
 
   await page.getByRole('button', { name: 'Claim faucet' }).click();
-  await expect(page.getByRole('status')).toContainText('Faucet transaction confirmed');
+  await expect(page.locator('.notice')).toContainText('Faucet transaction confirmed');
   await page.getByRole('button', { name: 'Approve 100' }).click();
   await page.getByRole('button', { name: 'Lock + prove' }).click();
   await expect(page.getByLabel('Proof job progress').locator('[aria-current="step"]')).toContainText(
@@ -383,12 +410,13 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await expect(page.getByText('Creditcoin testnet', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Creditcoin borrower profile')).toContainText('50.0 mUSD');
   await page.getByRole('button', { name: 'Borrow 50' }).click();
-  await expect(page.getByRole('status')).toContainText('Borrow confirmed by your wallet');
+  await expect(page.locator('.notice')).toContainText('Borrow confirmed by your wallet');
   await expect(page.getByLabel('Creditcoin borrower profile')).toContainText('50.0 mUSD');
   await page.getByRole('button', { name: 'Repay all' }).click();
-  await expect(page.getByRole('status')).toContainText('Repayment confirmed');
+  await expect(page.locator('.notice')).toContainText('Repayment confirmed');
   await expect(page.getByText('Current debt').locator('..')).toContainText('0.0 mUSD');
 
+  await page.getByRole('button', { name: 'Switch to Sepolia' }).click();
   await page.getByRole('button', { name: 'Prove it fails' }).click();
   await expect(page.getByText('REFUSED', { exact: true })).toBeVisible();
   await expect(page.getByText(/did not emit the required vault event/)).toBeVisible();
@@ -396,3 +424,51 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
 });
+
+for (const stage of ['approve', 'lock', 'borrow', 'repay_approve', 'repay'] as const) {
+  test(`refresh during ${stage} recovers the receipt without a duplicate wallet send`, async ({ page }) => {
+    const credit = ['borrow', 'repay_approve', 'repay'].includes(stage);
+    const held = selector(
+      stage.includes('approve')
+        ? 'approve(address,uint256)'
+        : stage === 'lock'
+          ? 'lock(uint256,uint64)'
+          : `${stage}(bytes32,uint256)`
+    );
+    await installWallet(page, held, stage.startsWith('repay') ? 50_000_000 : 0);
+    await mockApi(page, credit ? [job(`0x${'01'.repeat(32)}`, 'executed')] : []);
+    await page.goto('http://127.0.0.1:4174');
+    if (credit) await page.getByRole('button', { name: 'Switch to Creditcoin' }).click();
+    const button =
+      stage === 'approve'
+        ? 'Approve 100'
+        : stage === 'lock'
+          ? 'Lock + prove'
+          : stage === 'borrow'
+            ? 'Borrow 50'
+            : 'Repay all';
+    await page.getByRole('button', { name: button }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => JSON.parse(localStorage.getItem('attestlock.mockchain')!).transactions.length)
+      )
+      .toBe(stage === 'repay' ? 2 : 1);
+    const sends = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('attestlock.mockchain')!).transactions.length
+    );
+    await page.reload();
+    await expect(page.getByText(/A wallet transaction is pending/)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: stage.startsWith('repay') ? /Repay all|Continue repayment/ : button })
+    ).toBeDisabled();
+    await page.evaluate(() => (window as unknown as { __mine(): void }).__mine());
+    await expect(page.getByText(/A wallet transaction is pending/)).not.toBeVisible({ timeout: 12_000 });
+    expect(
+      await page.evaluate(() => JSON.parse(localStorage.getItem('attestlock.mockchain')!).transactions.length)
+    ).toBe(sends);
+    if (stage === 'lock')
+      await expect(page.getByRole('button', { name: 'Resume authorization' })).toBeVisible();
+    if (stage === 'repay_approve')
+      await expect(page.getByRole('button', { name: 'Continue repayment' })).toBeEnabled();
+  });
+}

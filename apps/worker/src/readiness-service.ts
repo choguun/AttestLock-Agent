@@ -10,6 +10,7 @@ import type { chainInfo } from '@gluwa/usc-sdk';
 import { Contract, getAddress, type JsonRpcProvider, type Wallet } from 'ethers';
 import type { WorkerConfig } from './env.js';
 import type { ChainReadiness } from './server.js';
+import { bounded } from './timeouts.js';
 
 const BLOCK_PROVER_ADDRESS = '0x0000000000000000000000000000000000000FD2';
 
@@ -130,63 +131,53 @@ export class ChainReadinessService {
     this.pool = new Contract(config.CREDIT_POOL_ADDRESS, creditPoolAbi, creditcoinProvider);
   }
 
+  private pending: Promise<ChainReadiness> | null = null;
+  private cached: { at: number; value: ChainReadiness } | null = null;
+
   async check(): Promise<ChainReadiness> {
-    let sourceRpc = false;
-    let destinationRpc = false;
-    let sourceContracts = false;
-    let destinationContracts = false;
-    let contractBindings = false;
-    let attestcoinChain = false;
-    let activeAttestation = false;
-    let fundedRelayer = false;
-    let latestAttestedHeight: number | null = null;
-    let attestationAdvancedAt: string | null = null;
+    if (this.pending) return this.pending;
+    if (this.cached && Date.now() - this.cached.at < 10_000) return this.cached.value;
+    this.pending = this.sample()
+      .then((value) => {
+        this.cached = { at: Date.now(), value };
+        return value;
+      })
+      .finally(() => {
+        this.pending = null;
+      });
+    return this.pending;
+  }
 
-    try {
-      const [network, vaultCode, tokenCode] = await Promise.all([
-        this.sourceProvider.getNetwork(),
-        this.sourceProvider.getCode(this.config.SOURCE_VAULT_ADDRESS),
-        this.sourceProvider.getCode(this.config.SOURCE_TOKEN_ADDRESS),
-      ]);
-      sourceRpc = network.chainId === BigInt(SEPOLIA_CHAIN_ID);
-      sourceContracts = vaultCode !== '0x' && tokenCode !== '0x';
-    } catch {
-      // Detailed readiness is returned instead of failing the liveness process.
-    }
-
-    try {
-      const [network, ascCode, poolCode, assetCode, registered, latest, balance] = await Promise.all([
-        this.creditcoinProvider.getNetwork(),
-        this.creditcoinProvider.getCode(this.config.ATTESTLOCK_ASC_ADDRESS),
-        this.creditcoinProvider.getCode(this.config.CREDIT_POOL_ADDRESS),
-        this.creditcoinProvider.getCode(this.config.MOCK_USD_ADDRESS),
-        this.chainInfoProvider.getSupportedChainByKey(SEPOLIA_CHAIN_KEY),
-        this.chainInfoProvider.getLatestAttestedHeightAndHash(SEPOLIA_CHAIN_KEY),
-        this.creditcoinProvider.getBalance(this.wallet.address),
-      ]);
-      destinationRpc = network.chainId === BigInt(CREDITCOIN_TESTNET_CHAIN_ID);
-      destinationContracts = ascCode !== '0x' && poolCode !== '0x' && assetCode !== '0x';
-      attestcoinChain = isSupportedSourceChain(registered);
-      const observation = observeAttestationProgress(
-        latest,
-        this.attestationProgress,
-        Date.now(),
-        this.config.MAX_ATTESTATION_STALENESS_MS
-      );
-      this.attestationProgress = observation.progress;
-      activeAttestation = observation.active;
-      latestAttestedHeight = isActiveAttestation(latest) ? latest.height : null;
-      attestationAdvancedAt = observation.progress?.verifiedAdvancement
-        ? new Date(observation.progress.advancedAt).toISOString()
-        : null;
-      fundedRelayer = isRelayerFunded(balance, BigInt(this.config.MIN_RELAYER_BALANCE_WEI));
-    } catch {
-      // Component booleans remain false and /ready responds 503.
-    }
-
-    if (sourceContracts && destinationContracts) {
-      try {
-        const [vaultToken, ascVerifier, ascPool, ascVault, ascToken, poolAsset, poolAsc] = await Promise.all([
+  private async sample(): Promise<ChainReadiness> {
+    const probe = <T>(promise: Promise<T>) => bounded(promise).catch(() => null);
+    const [
+      sourceNetwork,
+      destinationNetwork,
+      sourceCode,
+      destinationCode,
+      bindings,
+      registered,
+      latest,
+      balance,
+      payload,
+    ] = await Promise.all([
+      probe(this.sourceProvider.getNetwork()),
+      probe(this.creditcoinProvider.getNetwork()),
+      probe(
+        Promise.all([
+          this.sourceProvider.getCode(this.config.SOURCE_VAULT_ADDRESS),
+          this.sourceProvider.getCode(this.config.SOURCE_TOKEN_ADDRESS),
+        ])
+      ),
+      probe(
+        Promise.all([
+          this.creditcoinProvider.getCode(this.config.ATTESTLOCK_ASC_ADDRESS),
+          this.creditcoinProvider.getCode(this.config.CREDIT_POOL_ADDRESS),
+          this.creditcoinProvider.getCode(this.config.MOCK_USD_ADDRESS),
+        ])
+      ),
+      probe(
+        Promise.all([
           this.sourceVault.getFunction('collateralToken')(),
           this.asc.getFunction('verifier')(),
           this.asc.getFunction('pool')(),
@@ -194,45 +185,51 @@ export class ChainReadinessService {
           this.asc.getFunction('sourceToken')(),
           this.pool.getFunction('asset')(),
           this.pool.getFunction('asc')(),
-        ]);
-        contractBindings = areContractBindingsValid(
-          { vaultToken, ascVerifier, ascPool, ascVault, ascToken, poolAsset, poolAsc },
-          this.config
-        );
-      } catch {
-        contractBindings = false;
-      }
-    }
-
-    let proofBuilder = false;
-    let proofBuilderHeight: number | null = null;
-    try {
-      const endpoint = new URL(`/api/v1/attested-height/${SEPOLIA_CHAIN_KEY}`, this.config.PROOF_BUILDER_URL);
-      const response = await fetch(endpoint, { signal: AbortSignal.timeout(10_000) });
-      const payload: unknown = response.ok ? await response.json() : null;
-      proofBuilderHeight = proofBuilderAttestedHeight(payload);
-      proofBuilder =
-        response.ok &&
-        isProofBuilderReady(payload, latestAttestedHeight, this.config.MAX_PROOF_BUILDER_LAG_BLOCKS);
-    } catch {
-      // A failed public service probe is a readiness failure, not liveness failure.
-    }
-
+        ])
+      ),
+      probe(this.chainInfoProvider.getSupportedChainByKey(SEPOLIA_CHAIN_KEY)),
+      probe(this.chainInfoProvider.getLatestAttestedHeightAndHash(SEPOLIA_CHAIN_KEY)),
+      probe(this.creditcoinProvider.getBalance(this.wallet.address)),
+      probe(
+        fetch(new URL(`/api/v1/attested-height/${SEPOLIA_CHAIN_KEY}`, this.config.PROOF_BUILDER_URL), {
+          signal: AbortSignal.timeout(9_000),
+        }).then(async (response) => (response.ok ? response.json() : null))
+      ),
+    ]);
+    const observation = observeAttestationProgress(
+      latest ?? { exists: false, height: 0 },
+      this.attestationProgress,
+      Date.now(),
+      this.config.MAX_ATTESTATION_STALENESS_MS
+    );
+    this.attestationProgress = observation.progress;
+    const height = latest && isActiveAttestation(latest) ? latest.height : null;
+    const [vaultToken, ascVerifier, ascPool, ascVault, ascToken, poolAsset, poolAsc] = bindings ?? [];
     return {
       checks: {
-        sourceRpc,
-        destinationRpc,
-        sourceContracts,
-        destinationContracts,
-        contractBindings,
-        attestcoinChain,
-        activeAttestation,
-        proofBuilder,
-        fundedRelayer,
+        sourceRpc: sourceNetwork?.chainId === BigInt(SEPOLIA_CHAIN_ID),
+        destinationRpc: destinationNetwork?.chainId === BigInt(CREDITCOIN_TESTNET_CHAIN_ID),
+        sourceContracts: Boolean(sourceCode?.every((code) => code !== '0x')),
+        destinationContracts: Boolean(destinationCode?.every((code) => code !== '0x')),
+        contractBindings: Boolean(
+          bindings &&
+          areContractBindingsValid(
+            { vaultToken, ascVerifier, ascPool, ascVault, ascToken, poolAsset, poolAsc },
+            this.config
+          )
+        ),
+        attestcoinChain: isSupportedSourceChain(registered),
+        activeAttestation: observation.active,
+        fundedRelayer:
+          balance !== null && isRelayerFunded(balance, BigInt(this.config.MIN_RELAYER_BALANCE_WEI)),
+        proofBuilder:
+          height !== null && isProofBuilderReady(payload, height, this.config.MAX_PROOF_BUILDER_LAG_BLOCKS),
       },
-      latestAttestedHeight,
-      attestationAdvancedAt,
-      proofBuilderAttestedHeight: proofBuilderHeight,
+      latestAttestedHeight: height,
+      attestationAdvancedAt: observation.progress?.verifiedAdvancement
+        ? new Date(observation.progress.advancedAt).toISOString()
+        : null,
+      proofBuilderAttestedHeight: proofBuilderAttestedHeight(payload),
     };
   }
 }

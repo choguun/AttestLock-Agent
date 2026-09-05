@@ -26,6 +26,8 @@ const schema = z.object({
   PUBLIC_API_ORIGIN: z.string().url().default('http://localhost:3001'),
   MAX_JOBS_PER_WALLET_PER_DAY: z.coerce.number().int().positive().default(5),
   MAX_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  // Set only to observed ingress CIDRs; never trust every forwarded header or a guessed hop count.
+  TRUSTED_PROXY_CIDRS: z.string().default(''),
   CREDITCOIN_DEPLOYMENT_BLOCK: z.coerce.number().int().positive(),
   MIN_RELAYER_BALANCE_WEI: z.string().regex(/^\d+$/).default('10000000000000000'),
   MAX_ATTESTATION_STALENESS_MS: z.coerce

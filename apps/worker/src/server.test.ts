@@ -113,15 +113,16 @@ describe('worker API', () => {
     const app = await buildServer(new MemoryJobStore(), config, new InMemoryJobEvents());
     apps.push(app);
     expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
-    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(503);
     const stats = await app.inject({ method: 'GET', url: '/api/stats' });
     expect(stats.statusCode).toBe(200);
     expect(stats.json()).toMatchObject({
       totalJobs: 0,
       uniqueWallets: 0,
-      latestAttestedHeight: 1,
-      linesOpened: 0,
-      totalCreditOpenedAtomic: '0',
+      latestAttestedHeight: null,
+      linesOpened: null,
+      totalCreditOpenedAtomic: null,
+      protocolStatus: 'unavailable',
     });
     expect((await app.inject({ method: 'GET', url: '/api/jobs' })).statusCode).toBe(400);
     expect((await app.inject({ method: 'GET', url: '/api/events' })).statusCode).toBe(400);
@@ -207,6 +208,63 @@ describe('worker API', () => {
     expect(protocolStats).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the last successful aggregate snapshot explicitly stale on RPC failure', async () => {
+    const observer = vi.fn().mockResolvedValueOnce({
+      linesOpened: 2,
+      borrowersWhoDrew: 1,
+      totalCreditOpenedAtomic: '100000000',
+      totalBorrowedAtomic: '50000000',
+      totalRepaidAtomic: '0',
+      outstandingDebtAtomic: '50000000',
+      asOfBlock: 123,
+    });
+    const app = await buildServer(new MemoryJobStore(), config, new InMemoryJobEvents(), undefined, observer);
+    apps.push(app);
+    const first = (await app.inject({ method: 'GET', url: '/api/stats' })).json();
+    expect(first).toMatchObject({ protocolStatus: 'current', linesOpened: 2, asOfBlock: 123 });
+    observer.mockRejectedValue(new Error('https://private:credential@rpc.example/token'));
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 61_000);
+    try {
+      const second = (await app.inject({ method: 'GET', url: '/api/stats' })).json();
+      expect(second).toMatchObject({
+        protocolStatus: 'stale',
+        linesOpened: 2,
+        asOfBlock: 123,
+        protocolObservedAt: first.protocolObservedAt,
+      });
+      expect(JSON.stringify(second)).not.toContain('credential');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('does not trust forged forwarding headers and rejects disallowed SSE origins', async () => {
+    const app = await buildServer(
+      new MemoryJobStore(),
+      { ...config, MAX_REQUESTS_PER_MINUTE: 2 },
+      new InMemoryJobEvents()
+    );
+    apps.push(app);
+    const wallet = Wallet.createRandom().address;
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/events?wallet=${wallet}`,
+          headers: { origin: 'https://evil.example' },
+        })
+      ).statusCode
+    ).toBe(403);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/stats', headers: { 'x-forwarded-for': '1.1.1.1' } }))
+        .statusCode
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/stats', headers: { 'x-forwarded-for': '2.2.2.2' } }))
+        .statusCode
+    ).toBe(429);
+  });
+
   it('rejects malformed and expired authorization requests', async () => {
     const store = new MemoryJobStore();
     const app = await buildServer(store, config, new InMemoryJobEvents());
@@ -256,7 +314,9 @@ describe('worker API', () => {
       headers: { origin: 'http://localhost:5173' },
     });
     expect(first.headers['access-control-allow-origin']).toBe('http://localhost:5173');
-    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(429);
+    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/stats' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/stats' })).statusCode).toBe(429);
   });
 
   it('enforces concurrent quota requests at the authorization boundary', async () => {

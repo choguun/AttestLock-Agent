@@ -13,9 +13,11 @@ import {
   type JsonRpcProvider,
   type Log,
   type Wallet,
+  keccak256,
 } from 'ethers';
 import type { WorkerConfig } from './env.js';
-import { RefusedError, TransientError, errorMessage } from './errors.js';
+import { DeferredError, RefusedError, TransientError, errorMessage } from './errors.js';
+import type { ClaimedJob, JobStore } from './store.js';
 
 const refusalCodes: Record<string, string> = {
   UnsupportedChain: 'UNSUPPORTED_CHAIN',
@@ -89,7 +91,8 @@ export function aggregatePoolEvents(
       // Ignore unrelated logs.
     }
   }
-  const outstanding = totalBorrowed >= totalRepaid ? totalBorrowed - totalRepaid : 0n;
+  if (totalRepaid > totalBorrowed) throw new Error('Pool event accounting is inconsistent.');
+  const outstanding = totalBorrowed - totalRepaid;
   return {
     linesOpened,
     borrowersWhoDrew: borrowersWhoDrew.size,
@@ -167,7 +170,8 @@ export class CreditcoinSubmitter {
   constructor(
     private readonly config: WorkerConfig,
     private readonly provider: JsonRpcProvider,
-    wallet: Wallet
+    private readonly wallet: Wallet,
+    private readonly store: JobStore
   ) {
     this.asc = new Contract(config.ATTESTLOCK_ASC_ADDRESS, attestLockAscAbi, wallet);
     this.pool = new Contract(config.CREDIT_POOL_ADDRESS, creditPoolAbi, provider);
@@ -206,34 +210,50 @@ export class CreditcoinSubmitter {
       } catch {
         // pallet-evm precompile estimation can fail; bounded fallback is intentional.
       }
-      const response = await execute(...args, { gasLimit });
-      const submission = response.hash.toLowerCase();
-      await transition('submitting', { creditcoinSubmissionTxHash: submission });
-      const receipt = await response.wait();
-      if (!receipt || receipt.status !== 1) {
-        throw new TransientError('CREDITCOIN_TX_FAILED', 'Creditcoin transaction was not successful');
-      }
-      const execution = await this.executionEvidence(receipt, lockId);
-      return {
-        ...proofEvidence,
-        ...execution,
-        creditcoinSubmissionTxHash: submission,
-        processingDurationMs: Date.now() - new Date(job.createdAt).getTime(),
-      };
+      if (gasLimit > 5_000_000n)
+        throw new RefusedError('PROOF_GAS_LIMIT_EXCEEDED', 'Proof exceeds the relayer gas budget.');
+      const relayer = `102031:${this.wallet.address.toLowerCase()}`;
+      await this.store.withRelayerLock(relayer, async () => {
+        if (await this.store.getSubmission(job.id)) return;
+        if (await this.store.hasPendingSubmission(relayer)) throw new DeferredError('RELAYER_NONCE_BUSY');
+        const request = await this.wallet.populateTransaction({
+          ...(await execute.populateTransaction(...args)),
+          gasLimit,
+        });
+        if (request.chainId !== 102031n) throw new DeferredError('DESTINATION_CHAIN_MISMATCH');
+        const rawTransaction = await this.wallet.signTransaction(request);
+        const txHash = keccak256(rawTransaction).toLowerCase();
+        // Atomically fence the job and save both the outbox and its public identity before RPC broadcast.
+        await this.store.saveSubmission(
+          { jobId: job.id, relayer, txHash, rawTransaction },
+          (job as ClaimedJob).leaseToken
+        );
+        job.evidence.creditcoinSubmissionTxHash = txHash;
+      });
+      const saved = await this.store.getSubmission(job.id);
+      if (!saved) throw new Error('Signed submission was not persisted.');
+      await transition('submitting', { creditcoinSubmissionTxHash: saved.txHash });
+      // Rebroadcasting identical signed bytes is safe and cannot consume a second nonce.
+      await this.provider.broadcastTransaction(saved.rawTransaction).catch(() => undefined);
+      throw new DeferredError('CREDITCOIN_TX_PENDING');
     } catch (error) {
-      if (error instanceof RefusedError || error instanceof TransientError) throw error;
+      if (error instanceof RefusedError || error instanceof TransientError || error instanceof DeferredError)
+        throw error;
       throw new TransientError('CREDITCOIN_SUBMISSION_FAILED', errorMessage(error));
     }
   }
 
   async reconcile(job: Job, lockId: string): Promise<JobEvidence | null> {
-    const submission = job.evidence.creditcoinSubmissionTxHash?.toLowerCase();
+    const saved = await this.store.getSubmission(job.id);
+    const submission = saved?.txHash ?? job.evidence.creditcoinSubmissionTxHash?.toLowerCase();
     if (!submission) return this.findExistingExecution(lockId);
     try {
       const receipt = await this.provider.getTransactionReceipt(submission);
       if (!receipt) {
-        throw new TransientError('CREDITCOIN_TX_PENDING', 'Submitted proof transaction is pending.');
+        if (saved) await this.provider.broadcastTransaction(saved.rawTransaction).catch(() => undefined);
+        throw new DeferredError('CREDITCOIN_TX_PENDING');
       }
+      await this.store.finalizeSubmission(job.id);
       if (receipt.status === 1) {
         return {
           ...(await this.executionEvidence(receipt, lockId)),
@@ -248,12 +268,13 @@ export class CreditcoinSubmitter {
         'The recorded Creditcoin proof transaction reverted and changed no protocol state.'
       );
     } catch (error) {
-      if (error instanceof RefusedError || error instanceof TransientError) throw error;
+      if (error instanceof RefusedError || error instanceof TransientError || error instanceof DeferredError)
+        throw error;
       throw new TransientError('CREDITCOIN_RECONCILIATION_FAILED', errorMessage(error));
     }
   }
 
-  async publicStats(): Promise<ProtocolStats> {
+  async publicStats(): Promise<ProtocolStats & { asOfBlock: number }> {
     const latest = await this.provider.getBlockNumber();
     const logs = await getLogsInRanges(
       this.provider,
@@ -261,7 +282,7 @@ export class CreditcoinSubmitter {
       this.config.CREDITCOIN_DEPLOYMENT_BLOCK,
       latest
     );
-    return aggregatePoolEvents(this.pool, logs);
+    return { ...aggregatePoolEvents(this.pool, logs), asOfBlock: latest };
   }
 
   private async findExistingExecution(lockId: string): Promise<JobEvidence | null> {

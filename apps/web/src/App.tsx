@@ -29,11 +29,16 @@ import {
 } from './wallet';
 import {
   recordTransaction,
+  assertJournalAvailable,
   updateTransaction,
   walletTransactions,
   type JournalAction,
   type JournalEntry,
+  type TransactionIdentity,
+  resolveReplacement,
 } from './transaction-journal';
+import { mergeJobs } from './job-recovery';
+import { JudgeEvidence } from './JudgeEvidence';
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -45,10 +50,70 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
 }
 
 function CopyValue({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
   return (
-    <button className="copy-button" type="button" onClick={() => void navigator.clipboard.writeText(value)}>
-      Copy {label}
+    <button
+      className="copy-button"
+      type="button"
+      onClick={() =>
+        void navigator.clipboard
+          .writeText(value)
+          .then(() => setCopied(true))
+          .catch(() => setCopied(false))
+      }
+    >
+      {copied ? 'Copied' : `Copy ${label}`}
     </button>
+  );
+}
+
+function ReplacementRecovery({
+  entry,
+  onResolve,
+}: {
+  entry: JournalEntry;
+  onResolve: (hash: string) => Promise<void>;
+}) {
+  const [hash, setHash] = useState('');
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState('');
+  return (
+    <details>
+      <summary>Resolve replaced or cancelled {entry.action} transaction</summary>
+      <p>
+        The original stays pending until a receipt or a confirmed same-wallet, same-nonce replacement is
+        verified. No transaction is sent here.
+      </p>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (pending) return;
+          setPending(true);
+          setMessage('Checking replacement…');
+          void onResolve(hash)
+            .then(() => setMessage('Replacement reconciled.'))
+            .catch(() =>
+              setMessage(
+                'Cannot verify this replacement. Check its chain, wallet, nonce, and confirmed receipt.'
+              )
+            )
+            .finally(() => setPending(false));
+        }}
+      >
+        <label htmlFor={`replacement-${entry.key}`}>Confirmed replacement hash for {entry.action}</label>
+        <input
+          id={`replacement-${entry.key}`}
+          value={hash}
+          onChange={(event) => setHash(event.target.value)}
+          pattern="0x[0-9a-fA-F]{64}"
+          required
+        />
+        <button disabled={pending} className="button secondary">
+          Check replacement
+        </button>
+        <p role="status">{message}</p>
+      </form>
+    </details>
   );
 }
 
@@ -65,34 +130,71 @@ export default function App() {
   const [balances, setBalances] = useState<Partial<{ collateral: string; credit: string }>>({});
   const [stats, setStats] = useState<PublicStats | null>(null);
   const recoveredEntries = useRef(new Set<string>());
+  const sessionRef = useRef<WalletSession | null>(null);
+  sessionRef.current = session;
+  const walletRevision = useRef(0);
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [selectedLock, setSelectedLock] = useState('');
+  const selectedLockRef = useRef('');
+  selectedLockRef.current = selectedLock;
+  const [, tick] = useState(0);
+  const pendingWalletTx = journal.some(
+    (entry) => entry.status === 'pending' && entry.action !== 'queue' && entry.chainId === session?.chainId
+  );
+  const pendingQueue = journal.find((entry) => entry.action === 'queue' && entry.status === 'pending');
   const latest = jobs[0];
-  const executed = jobs.find((job) => job.status === 'executed' && job.evidence.lockId);
+  const creditJobs = jobs.filter((job) => job.status === 'executed' && job.evidence.lockId);
+  const executed = creditJobs.find((job) => job.evidence.lockId === selectedLock) ?? creditJobs[0];
 
   const refreshJobs = useCallback(async (address: string) => {
+    const revision = walletRevision.current;
     const next = await api.listJobs(address);
-    setJobs(next);
+    if (
+      revision !== walletRevision.current ||
+      sessionRef.current?.address.toLowerCase() !== address.toLowerCase()
+    )
+      return;
+    setJobs((current) => mergeJobs(current, next, address));
   }, []);
 
   useEffect(() => {
     if (!isConfigured) return;
+    const revision = walletRevision.current;
     void restoreWallet()
       .then((restored) => {
-        if (restored) setSession(restored);
+        if (restored && revision === walletRevision.current) setSession(restored);
       })
       .catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!session || !isConfigured) return;
-    void refreshJobs(session.address);
+    let disposed = false;
+    const refresh = () => {
+      if (!disposed) void refreshJobs(session.address).catch(() => undefined);
+    };
+    refresh();
+    const poll = window.setInterval(refresh, 5_000);
     const stream = new EventSource(
       `${config.apiUrl}/api/events?wallet=${encodeURIComponent(session.address)}`
     );
     stream.addEventListener('job', (event) => {
-      const job = JSON.parse((event as MessageEvent).data) as Job;
-      setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+      if (disposed) return;
+      try {
+        const job = JSON.parse((event as MessageEvent).data) as Job;
+        setJobs((current) => mergeJobs(current, [job], session.address));
+      } catch {
+        refresh();
+      }
     });
-    return () => stream.close();
+    stream.addEventListener('open', refresh);
+    return () => {
+      disposed = true;
+      window.clearInterval(poll);
+      stream.close();
+    };
   }, [refreshJobs, session]);
 
   useEffect(() => {
@@ -108,22 +210,47 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!window.ethereum) return;
     return watchWallet(() => {
-      void connectWallet().then((next) => {
-        setSession(next);
-        setLine(null);
-        setProfile(null);
-        setBalances({});
-        setNotice(`Wallet changed to ${shortAddress(next.address)} on ${chainLabel(next.chainId)}.`);
-      });
+      walletRevision.current += 1;
+      sessionRef.current = null;
+      setSession(null);
+      setJobs([]);
+      setJournal([]);
+      setLine(null);
+      setProfile(null);
+      setBalances({});
+      setCreditTx(null);
+      setSourceTx(null);
+      setSelectedLock('');
+      setBusy(null);
+      recoveredEntries.current.clear();
+      const revision = walletRevision.current;
+      void restoreWallet()
+        .then((next) => {
+          if (revision !== walletRevision.current) return;
+          setSession(next);
+          setNotice(
+            next
+              ? `Wallet changed to ${shortAddress(next.address)} on ${chainLabel(next.chainId)}.`
+              : 'Wallet disconnected.'
+          );
+        })
+        .catch(() => {
+          if (revision === walletRevision.current) setNotice('Wallet disconnected.');
+        });
     });
-  }, [session?.address]);
+  }, []);
 
   useEffect(() => {
     if (!session || !isConfigured) return;
     void refreshBalancesFor(session);
     void recoverTransactions(session);
+    const timer = window.setInterval(() => {
+      void recoverTransactions(session);
+      tick((value) => value + 1);
+    }, 4_000);
+    return () => window.clearInterval(timer);
   }, [session]);
 
   useEffect(() => {
@@ -137,20 +264,24 @@ export default function App() {
   }, [latest]);
 
   async function act(label: string, action: () => Promise<void>) {
+    if (busy !== null) return;
+    const revision = walletRevision.current;
     setBusy(label);
     setNotice(`${label}…`);
     try {
+      assertJournalAvailable();
       await action();
     } catch (error) {
-      setNotice(walletErrorMessage(error));
+      if (revision === walletRevision.current) setNotice(walletErrorMessage(error));
     } finally {
-      setBusy(null);
+      if (revision === walletRevision.current) setBusy(null);
     }
   }
 
   async function refreshBalancesFor(currentSession: WalletSession) {
     try {
       const next = await readBalances(currentSession);
+      if (sessionRef.current !== currentSession) return;
       setBalances((current) => ({ ...current, ...next }));
     } catch {
       // Balance evidence is helpful but does not control transaction safety.
@@ -163,9 +294,15 @@ export default function App() {
         readCreditLine(currentSession.signer, lockId),
         readBorrowerProfile(currentSession.signer, currentSession.address),
       ]);
+      if (
+        sessionRef.current !== currentSession ||
+        (selectedLockRef.current && selectedLockRef.current !== lockId)
+      )
+        return;
       setLine(nextLine);
       setProfile(nextProfile);
     } catch {
+      if (sessionRef.current !== currentSession) return;
       setLine(null);
       setProfile(null);
     }
@@ -175,19 +312,40 @@ export default function App() {
     currentSession: WalletSession,
     action: JournalAction,
     txHash: string,
-    lockId?: string
+    lockId?: string,
+    identity?: TransactionIdentity
   ): JournalEntry {
-    return recordTransaction(currentSession.address, currentSession.chainId, action, txHash, lockId);
+    const entry = recordTransaction(
+      currentSession.address,
+      currentSession.chainId,
+      action,
+      txHash,
+      lockId,
+      identity
+    );
+    assertCurrent(currentSession);
+    setJournal(walletTransactions(currentSession.address));
+    return entry;
+  }
+
+  function assertCurrent(currentSession: WalletSession): void {
+    if (sessionRef.current !== currentSession)
+      throw new Error('Wallet changed. Resume from the transaction journal.');
   }
 
   async function queueFor(currentSession: WalletSession, txHash: string) {
+    assertCurrent(currentSession);
+    if (!isConfigured || currentSession.chainId !== config.sepoliaChainId)
+      throw new Error('Switch to Sepolia to authorize this proof.');
     const journal = recordTransaction(currentSession.address, config.sepoliaChainId, 'queue', txHash);
     const challenge = await api.challenge(currentSession.address, txHash);
+    assertCurrent(currentSession);
     const signature = await currentSession.signer.signTypedData(
       challenge.typedData.domain,
       challenge.typedData.types,
       challenge.typedData.message
     );
+    assertCurrent(currentSession);
     const job = await api.createJob({
       txHash,
       wallet: currentSession.address,
@@ -195,7 +353,9 @@ export default function App() {
       nonce: challenge.nonce,
     });
     updateTransaction(journal, 'confirmed', job.evidence.lockId);
-    setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+    assertCurrent(currentSession);
+    setJournal(walletTransactions(currentSession.address));
+    setJobs((current) => mergeJobs(current, [job], currentSession.address));
     setNotice('Proof job queued. The worker can prove the lock, but it cannot borrow for you.');
   }
 
@@ -205,7 +365,26 @@ export default function App() {
   }
 
   async function recoverTransactions(currentSession: WalletSession) {
+    if (sessionRef.current !== currentSession) return;
     const entries = walletTransactions(currentSession.address);
+    for (const locked of entries.filter((entry) => entry.action === 'lock' && entry.status === 'confirmed')) {
+      if (!entries.some((entry) => entry.action === 'queue' && entry.txHash === locked.txHash)) {
+        recordTransaction(
+          currentSession.address,
+          config.sepoliaChainId,
+          'queue',
+          locked.txHash,
+          locked.lockId
+        );
+      }
+    }
+    for (const authorization of entries.filter(
+      (entry) => entry.action === 'queue' && entry.status === 'pending'
+    )) {
+      const existing = jobsRef.current.find((job) => job.txHash.toLowerCase() === authorization.txHash);
+      if (existing) updateTransaction(authorization, 'confirmed', existing.evidence.lockId);
+    }
+    setJournal(entries);
     const source = entries.find(
       (entry) => entry.chainId === config.sepoliaChainId && entry.action !== 'queue'
     );
@@ -219,11 +398,7 @@ export default function App() {
       if (recoveredEntries.current.has(entry.key)) continue;
       recoveredEntries.current.add(entry.key);
       if (entry.action === 'queue') {
-        try {
-          await queueFor(currentSession, entry.txHash);
-        } catch {
-          recoveredEntries.current.delete(entry.key);
-        }
+        recoveredEntries.current.delete(entry.key);
         continue;
       }
       if (entry.chainId !== currentSession.chainId) {
@@ -232,6 +407,7 @@ export default function App() {
       }
       try {
         const receipt = await currentSession.provider.getTransactionReceipt(entry.txHash);
+        if (sessionRef.current !== currentSession) return;
         if (!receipt) {
           recoveredEntries.current.delete(entry.key);
           continue;
@@ -245,7 +421,16 @@ export default function App() {
           const fact = lockFactFromReceipt(receipt);
           updateTransaction(entry, 'confirmed', fact.lockId);
           setSourceTx({ label: 'Lock', hash: entry.txHash });
-          await queueFor(currentSession, entry.txHash);
+          recordTransaction(
+            currentSession.address,
+            config.sepoliaChainId,
+            'queue',
+            entry.txHash,
+            fact.lockId
+          );
+          setNotice(
+            'Lock confirmed. Resume authorization when you are ready; no signature is requested automatically.'
+          );
         } else {
           updateTransaction(entry, 'confirmed');
         }
@@ -257,6 +442,7 @@ export default function App() {
         recoveredEntries.current.delete(entry.key);
       }
     }
+    if (sessionRef.current === currentSession) setJournal(walletTransactions(currentSession.address));
   }
 
   return (
@@ -319,6 +505,21 @@ export default function App() {
       <div className="notice" role="status" aria-live="polite">
         {busy ? `${busy}…` : notice}
       </div>
+      {pendingWalletTx && (
+        <div className="banner" role="status">
+          A wallet transaction is pending on this network. Its receipt is being checked; duplicate sends are
+          disabled.
+        </div>
+      )}
+      {pendingQueue && (
+        <button
+          className="button secondary"
+          disabled={!isConfigured || busy !== null || session?.chainId !== config.sepoliaChainId}
+          onClick={() => void act('Resuming authorization', () => queue(pendingQueue.txHash))}
+        >
+          Resume authorization
+        </button>
+      )}
 
       <section className="workspace" aria-label="AttestLock demo workspace">
         <article className="panel source-panel">
@@ -358,16 +559,21 @@ export default function App() {
             <button
               className="button secondary"
               disabled={
-                !session || session.chainId !== config.sepoliaChainId || !isConfigured || busy !== null
+                !session ||
+                session.chainId !== config.sepoliaChainId ||
+                !isConfigured ||
+                busy !== null ||
+                pendingWalletTx
               }
               onClick={() =>
                 void act('Claiming faucet tokens', async () => {
                   let journal: JournalEntry | undefined;
-                  const hash = await faucet(session!.signer, (submitted) => {
-                    journal = track(session!, 'faucet', submitted);
+                  const hash = await faucet(session!.signer, (submitted, identity) => {
+                    journal = track(session!, 'faucet', submitted, undefined, identity);
                     setSourceTx({ label: 'Faucet', hash: submitted });
                   });
                   if (journal) updateTransaction(journal, 'confirmed');
+                  assertCurrent(session!);
                   setSourceTx({ label: 'Faucet', hash });
                   await refreshBalancesFor(session!);
                   setNotice('Faucet transaction confirmed.');
@@ -379,16 +585,21 @@ export default function App() {
             <button
               className="button secondary"
               disabled={
-                !session || session.chainId !== config.sepoliaChainId || !isConfigured || busy !== null
+                !session ||
+                session.chainId !== config.sepoliaChainId ||
+                !isConfigured ||
+                busy !== null ||
+                pendingWalletTx
               }
               onClick={() =>
                 void act('Approving vault', async () => {
                   let journal: JournalEntry | undefined;
-                  const hash = await approveCollateral(session!.signer, (submitted) => {
-                    journal = track(session!, 'approve', submitted);
+                  const hash = await approveCollateral(session!.signer, (submitted, identity) => {
+                    journal = track(session!, 'approve', submitted, undefined, identity);
                     setSourceTx({ label: 'Approval', hash: submitted });
                   });
                   if (journal) updateTransaction(journal, 'confirmed');
+                  assertCurrent(session!);
                   setSourceTx({ label: 'Approval', hash });
                   setNotice('Vault approval confirmed.');
                 })
@@ -399,16 +610,28 @@ export default function App() {
             <button
               className="button primary"
               disabled={
-                !session || session.chainId !== config.sepoliaChainId || !isConfigured || busy !== null
+                !session ||
+                session.chainId !== config.sepoliaChainId ||
+                !isConfigured ||
+                busy !== null ||
+                pendingWalletTx
               }
               onClick={() =>
                 void act('Locking collateral', async () => {
                   let journal: JournalEntry | undefined;
-                  const locked = await lockCollateral(session!.signer, (submitted) => {
-                    journal = track(session!, 'lock', submitted);
+                  const locked = await lockCollateral(session!.signer, (submitted, identity) => {
+                    journal = track(session!, 'lock', submitted, undefined, identity);
                     setSourceTx({ label: 'Lock', hash: submitted });
                   });
                   if (journal) updateTransaction(journal, 'confirmed', locked.lockId);
+                  recordTransaction(
+                    session!.address,
+                    config.sepoliaChainId,
+                    'queue',
+                    locked.txHash,
+                    locked.lockId
+                  );
+                  assertCurrent(session!);
                   setSourceTx({ label: 'Lock', hash: locked.txHash });
                   await refreshBalancesFor(session!);
                   setNotice(`Collateral locked as ${locked.lockId.slice(0, 12)}…`);
@@ -529,6 +752,25 @@ export default function App() {
               <h2>Use the line</h2>
             </div>
           </header>
+          {creditJobs.length > 0 && (
+            <label>
+              Credit line history
+              <select
+                aria-label="Credit line history"
+                value={executed?.evidence.lockId ?? ''}
+                onChange={(event) => {
+                  setSelectedLock(event.target.value);
+                  setLine(null);
+                }}
+              >
+                {creditJobs.map((job) => (
+                  <option key={job.id} value={job.evidence.lockId}>
+                    {job.evidence.lockId?.slice(0, 12)}… · {new Date(job.createdAt).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="metric accent">
             <span>Maximum credit</span>
             <strong>
@@ -565,6 +807,8 @@ export default function App() {
             <button
               className="button primary"
               disabled={
+                !isConfigured ||
+                pendingWalletTx ||
                 !canBorrowLine(session?.address, session?.chainId, executed?.evidence.lockId, line) ||
                 busy !== null
               }
@@ -575,12 +819,13 @@ export default function App() {
                     session!.signer,
                     executed!.evidence.lockId!,
                     '50',
-                    (submitted) => {
-                      journal = track(session!, 'borrow', submitted, executed!.evidence.lockId!);
+                    (submitted, identity) => {
+                      journal = track(session!, 'borrow', submitted, executed!.evidence.lockId!, identity);
                       setCreditTx(submitted);
                     }
                   );
                   if (journal) updateTransaction(journal, 'confirmed');
+                  assertCurrent(session!);
                   setCreditTx(hash);
                   await refreshCreditState(session!, executed!.evidence.lockId!);
                   await refreshBalancesFor(session!);
@@ -598,6 +843,8 @@ export default function App() {
                 !executed?.evidence.lockId ||
                 !line ||
                 Number(line.debt) === 0 ||
+                !isConfigured ||
+                pendingWalletTx ||
                 busy !== null
               }
               onClick={() =>
@@ -607,12 +854,13 @@ export default function App() {
                     session!.signer,
                     executed!.evidence.lockId!,
                     line!.debt,
-                    (action, submitted) => {
-                      journals.push(track(session!, action, submitted, executed!.evidence.lockId!));
+                    (action, submitted, identity) => {
+                      journals.push(track(session!, action, submitted, executed!.evidence.lockId!, identity));
                       setCreditTx(submitted);
                     }
                   );
                   journals.forEach((journal) => updateTransaction(journal, 'confirmed'));
+                  assertCurrent(session!);
                   setCreditTx(hash);
                   await refreshCreditState(session!, executed!.evidence.lockId!);
                   await refreshBalancesFor(session!);
@@ -620,7 +868,14 @@ export default function App() {
                 })
               }
             >
-              Repay all
+              {journal.some(
+                (entry) =>
+                  entry.action === 'repay_approve' &&
+                  entry.status === 'confirmed' &&
+                  entry.lockId === executed?.evidence.lockId
+              )
+                ? 'Continue repayment'
+                : 'Repay all'}
             </button>
           </div>
           {executed?.evidence.creditcoinTxHash && (
@@ -691,13 +946,21 @@ export default function App() {
         </div>
         <div>
           <span>Outstanding debt</span>
-          <strong>{stats ? `${formatUnits(stats.outstandingDebtAtomic, 6)} mUSD` : '—'}</strong>
+          <strong>
+            {stats?.outstandingDebtAtomic != null
+              ? `${formatUnits(stats.outstandingDebtAtomic, 6)} mUSD`
+              : '—'}
+          </strong>
         </div>
         <div>
           <span>Latest Sepolia attestation</span>
           <strong>{stats?.latestAttestedHeight?.toLocaleString() ?? '—'}</strong>
         </div>
-        <small>Wallet counts are aggregate protocol activity, not verified unique people.</small>
+        <small>
+          Wallet counts are aggregate protocol activity, not verified unique people. Chain metrics:{' '}
+          {stats?.protocolStatus ?? 'unavailable'}
+          {stats?.asOfBlock != null ? ` at block ${stats.asOfBlock}` : ''}.
+        </small>
       </section>
 
       <section className="refusal-demo">
@@ -727,6 +990,49 @@ export default function App() {
           </button>
         </form>
       </section>
+
+      {session && pendingWalletTx && (
+        <section className="refusal-demo" aria-label="Transaction recovery">
+          <div>
+            <h2>Pending wallet transactions</h2>
+            {journal
+              .filter(
+                (entry) =>
+                  entry.status === 'pending' && entry.action !== 'queue' && entry.chainId === session.chainId
+              )
+              .map((entry) => (
+                <ReplacementRecovery
+                  key={entry.key}
+                  entry={entry}
+                  onResolve={async (hash) => {
+                    const current = session;
+                    assertCurrent(current);
+                    const [replacement, receipt, original] = await Promise.all([
+                      current.provider.getTransaction(hash),
+                      current.provider.getTransactionReceipt(hash),
+                      entry.identity ? Promise.resolve(null) : current.provider.getTransaction(entry.txHash),
+                    ]);
+                    assertCurrent(current);
+                    if (!replacement || !receipt) throw new Error('Replacement is not confirmed.');
+                    const identity =
+                      entry.identity ??
+                      (original
+                        ? {
+                            nonce: original.nonce,
+                            to: original.to,
+                            data: original.data,
+                            value: original.value.toString(),
+                          }
+                        : undefined);
+                    resolveReplacement({ ...entry, identity }, replacement, receipt);
+                    await recoverTransactions(current);
+                  }}
+                />
+              ))}
+          </div>
+        </section>
+      )}
+      <JudgeEvidence />
 
       <footer>
         <p>AttestLock is a testnet prototype. No interest, liquidation, or mainnet funds.</p>

@@ -1,5 +1,7 @@
 # 90-second video script
 
+Draft narration only. Record after live evidence exists. Label time cuts and previously completed examples on screen; attestation is not guaranteed to finish within this runtime.
+
 **0:00–0:10**
 “Collateral on one chain should not require a bridge or oracle signer to become useful elsewhere. AttestLock keeps mock USDC on Sepolia and lets Creditcoin act only on a cryptographic proof.”
 

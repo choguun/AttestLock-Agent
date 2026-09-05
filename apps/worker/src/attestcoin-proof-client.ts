@@ -1,10 +1,12 @@
 import { SEPOLIA_CHAIN_KEY, type JobEvidence } from '@attestlock/shared';
 import type { chainInfo, proofProvider } from '@gluwa/usc-sdk';
-import { TransientError, errorMessage } from './errors.js';
+import { DeferredError, RefusedError, TransientError, errorMessage } from './errors.js';
+import { isSupportedSourceChain } from './readiness-service.js';
+import { bounded } from './timeouts.js';
 
 type ChainInfoClient = Pick<
   chainInfo.ChainInfoProvider,
-  'waitUntilHeightAttested' | 'getLatestAttestedHeightAndHash'
+  'getSupportedChainByKey' | 'getLatestAttestedHeightAndHash'
 >;
 
 interface ProofBuilderClient {
@@ -37,37 +39,38 @@ export class AttestcoinProofClient {
 
   async acquire(txHash: string, blockNumber: number): Promise<AcquiredProof> {
     try {
-      await this.chainInfoProvider.waitUntilHeightAttested(
-        SEPOLIA_CHAIN_KEY,
-        blockNumber,
-        15_000,
-        1_200_000,
-        15_000
-      );
+      const registered = await bounded(this.chainInfoProvider.getSupportedChainByKey(SEPOLIA_CHAIN_KEY));
+      if (!isSupportedSourceChain(registered)) throw new DeferredError('SOURCE_REGISTRATION_MISMATCH');
     } catch (error) {
-      throw new TransientError('ATTESTATION_TIMEOUT', errorMessage(error));
+      if (error instanceof DeferredError) throw error;
+      throw new TransientError('ATTESTATION_READ_FAILED', errorMessage(error));
     }
 
-    const latest = await this.chainInfoProvider
-      .getLatestAttestedHeightAndHash(SEPOLIA_CHAIN_KEY)
-      .catch((error) => {
-        throw new TransientError('ATTESTATION_READ_FAILED', errorMessage(error));
-      });
+    const latest = await bounded(
+      this.chainInfoProvider.getLatestAttestedHeightAndHash(SEPOLIA_CHAIN_KEY)
+    ).catch((error) => {
+      throw new TransientError('ATTESTATION_READ_FAILED', errorMessage(error));
+    });
     if (!latest.exists || latest.height < blockNumber) {
-      throw new TransientError('ATTESTATION_NOT_CONFIRMED', 'The source block is not attested yet.');
+      throw new DeferredError('ATTESTATION_NOT_CONFIRMED');
     }
+    const attestedAt = new Date().toISOString();
 
     let result: proofProvider.ProofResult;
     try {
-      result = await this.proofBuilder.getProof(txHash);
+      result = await bounded(this.proofBuilder.getProof(txHash), 30_000);
     } catch (error) {
       throw new TransientError('PROOF_BUILDER_UNAVAILABLE', errorMessage(error));
     }
     if (!result.success || !result.data) {
       throw new TransientError('PROOF_GENERATION_FAILED', result.error ?? 'No proof data returned');
     }
-    if (result.data.chainKey !== SEPOLIA_CHAIN_KEY || result.data.headerNumber !== blockNumber) {
-      throw new TransientError(
+    if (
+      result.data.chainKey !== SEPOLIA_CHAIN_KEY ||
+      result.data.headerNumber !== blockNumber ||
+      result.data.txHash?.toLowerCase() !== txHash.toLowerCase()
+    ) {
+      throw new RefusedError(
         'PROOF_DATA_MISMATCH',
         'ProofBuilder returned a proof for an unexpected chain or block.'
       );
@@ -77,7 +80,7 @@ export class AttestcoinProofClient {
       proof: result.data,
       evidence: {
         attestedHeight: latest.height,
-        attestedAt: new Date().toISOString(),
+        attestedAt,
         proofMerkleRoot: result.data.merkleProof.root,
         continuityRootCount: result.data.continuityProof.roots.length,
         proofGeneratedAt: new Date().toISOString(),

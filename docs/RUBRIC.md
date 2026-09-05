@@ -1,51 +1,43 @@
 # Rubric and eligibility ledger
 
-The organizer publishes requirements but no numeric weights. This repository therefore uses an internal equal-weight, five-pillar model for prioritization; it is not an official score.
+This is an internal equal-weight planning model of five AMA pillars, not organizer scoring or a prediction of winning. Audit baseline: clean main `002546f`, September 5, 2026. Local hardening does not automatically earn live-delivery points.
+
+| Pillar                       | Evidence-adjusted baseline |     Target | Evidence needed to earn the target                                                                                |
+| ---------------------------- | -------------------------: | ---------: | ----------------------------------------------------------------------------------------------------------------- |
+| Userbase Expansion           |                      13/20 |      16/20 | Public functional path, five-minute setup, honestly labelled aggregate activity                                   |
+| Technical Alignment          |                      18/20 |      20/20 | Verified contracts, native `0x0FD2` proof, real fixture, immutable bindings                                       |
+| Product Vision & Innovation  |                      17/20 |      19/20 | Auditable fixed-term origination, reusable borrower accounting, credible differentiation from Unbridged and Spark |
+| Execution Capability         |                      16/20 |      20/20 | Hosted worker and wallet flow, crash/replacement recovery, scheduled smoke and public videos                      |
+| Market & Technical Relevance |                      16/20 |      18/20 | Primary-source positioning plus observed protocol usage, without invented validation                              |
+| **Total**                    |                 **80/100** | **93/100** | Re-score only from the release's evidence ledger                                                                  |
+
+The previous 87/100 claim is withdrawn: it overcredited recovery, operational reliability, and differentiation. The audit-driven branch repairs those gaps, but its code, CI, hosted deployment, and live-chain outcomes remain distinct evidence layers.
 
 ## Hard eligibility
 
-| Requirement                  | Evidence                                                         | Status                           |
-| ---------------------------- | ---------------------------------------------------------------- | -------------------------------- |
-| Original hackathon work      | Public incremental Git history                                   | Pass                             |
-| Attestcoin is a core feature | `AttestLockASC` cannot open a line without `0x0FD2` verification | Pass in code; live proof pending |
-| Technical documentation      | README, architecture, integration, and threat model              | Pass                             |
-| Testnet deployment           | Sepolia and Creditcoin explorer links                            | Pending live deployment          |
-| Deck or whitepaper           | Six-slide PPTX and PDF                                           | Pass                             |
-| Prototype video              | Public 90-second live demo URL                                   | Pending live evidence            |
+| Requirement                                       | Artifact                                                                 | Current disposition                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Original hackathon work and redistribution rights | Incremental history, MIT original code, attributed dependencies/research | Original code present; historical copied research rights review still pending |
+| Meaningful Attestcoin integration                 | ASC proof gate, official differential harness                            | Code/tests present; native execution pending                                  |
+| Creditcoin testnet deployment                     | Actual manifests and explorer bytecode verification                      | Pending                                                                       |
+| Technical documentation                           | README, architecture, integration, threat model, claim ledger            | Present; active claims reconciled with explicit limits                        |
+| PDF deck or whitepaper                            | Six-slide draft PDF/PPTX                                                 | Draft has stale counts/screenshot; final refresh pending                      |
+| Prototype video                                   | Public 90-second demonstration                                           | Pending                                                                       |
 
-Eligibility remains **blocked** until both testnet deployment and the live proof-to-credit transaction are independently verifiable.
+**Submission readiness: FAIL.** Documentation and a polished preview do not substitute for working deployed integration. All mandatory fields and public links must be checked in a clean browser before submission.
 
-## Internal scoring model
+## Exact evidence map
 
-| Pillar                       |   Baseline | Current verified |     Target | Remaining evidence gap                                                 |
-| ---------------------------- | ---------: | ---------------: | ---------: | ---------------------------------------------------------------------- |
-| Userbase Expansion           |       7/20 |            14/20 |      16/20 | Public live onboarding and nonzero aggregate usage                     |
-| Technical Alignment          |      14/20 |            19/20 |      20/20 | Native `0x0FD2` transaction, verified bytecode, and real proof fixture |
-| Product Vision & Innovation  |      15/20 |            19/20 |      19/20 | Target met by bounded line plus reusable on-chain borrower profile     |
-| Execution Capability         |      10/20 |            18/20 |      20/20 | Live worker/hosted flow, scheduled smoke result, and two public videos |
-| Market & Technical Relevance |       7/20 |            17/20 |      18/20 | Replace research-only assumptions with observed live funnel evidence   |
-| **Total**                    | **53/100** |       **87/100** | **93/100** | Six points remain behind live, independently verifiable acceptance     |
+- Contract policy: [AttestLockASC.sol](../contracts/src/creditcoin/AttestLockASC.sol), [policy tests](../contracts/test/AttestLockASC.t.sol).
+- Actual official-base comparison: [OfficialDifferential.t.sol](../contracts/test/OfficialDifferential.t.sol).
+- Stateful credit accounting: [ProfileInvariant.t.sol](../contracts/test/ProfileInvariant.t.sol).
+- Recovery/security: [worker regressions](../apps/worker/src/recovery.test.ts), [submission recovery](../apps/worker/src/submission-recovery.test.ts), [PostgreSQL integration](../apps/worker/src/store.pg.test.ts).
+- User flow: [browser tests](../e2e/attestlock.spec.ts), [journal tests](../apps/web/src/transaction-journal.test.ts).
+- Claim scope and live gates: [CLAIMS.md](CLAIMS.md), [EVIDENCE.md](EVIDENCE.md), [COMPLETION.md](COMPLETION.md).
+- Research-only market rationale: [MARKET.md](MARKET.md), [COMPETITIVE.md](COMPETITIVE.md).
 
-The current score credits proof-contained transaction hardening, borrower profiles, first-observation-fails-closed ChainInfo readiness, binding checks, aggregate on-chain stats, measured coverage floors, real SSE API tests, transaction-journal refresh recovery, and primary-source competitor research. It does not award points for planned deployments, mock-only proof evidence, an inactive scheduled smoke, or unrecorded videos.
+## Scoring guardrails
 
-## Judge evidence map
+On-chain wallet counts are not independent people, interviews, pilots, or market validation. A borrower profile is accounting, not an identity or solvency score. The source vault cannot enforce destination default; no interest, liquidation, or authenticated release ships in V1. The six-hour smoke workflow earns operational evidence only when enabled and successfully run against the release SHA.
 
-- **One-sentence product:** Collateral stays on Ethereum; Creditcoin acts only on a proof.
-- **Load-bearing integration:** a line cannot exist unless the native verifier accepts the proof and the ASC validates receipt success, exact emitter/event/token, amount, term, and replay keys.
-- **Execution proof:** CI, hosted web, worker readiness, deployment manifests, explorer transactions, and a reproducible evidence transcript.
-- **Visible safety:** the same interface accepts a junk transaction and deterministically refuses it without opening credit.
-- **Honest boundary:** V1 cannot trustlessly liquidate or release source collateral; Attestcoin writability is roadmap work.
-
-## Artifact map for the 93 target
-
-| Evidence                                                                                     | Repository artifact                                             | Live status                                                       |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Borrower profile accounting and invariants                                                   | `CreditPool.sol`, Foundry tests, public ABI, wallet UI          | Verified locally                                                  |
-| ChainInfo registration, advancing height, ProofBuilder, RPC, bytecode, and relayer readiness | worker `/ready` and adapter tests                               | Verified locally; production pending                              |
-| Aggregate adoption evidence without wallet-list leakage                                      | worker `/api/stats` and API tests                               | Verified locally; live counts pending                             |
-| Full wallet and refusal journey                                                              | Playwright E2E with injected EIP-1193 provider and mocked API   | Verified SSE progression and mid-proof reload; live chain pending |
-| Production monitor                                                                           | scheduled/manual `live-smoke.yml` plus immutable binding checks | Implemented; deliberately inactive until live variables exist     |
-| Native proof, draw, rejection, and replay                                                    | sanitized manifest, fixture, transcript, explorer URLs          | Pending                                                           |
-| Submission and technical appendix videos                                                     | public unauthenticated URLs                                     | Pending                                                           |
-
-Official source: [BUIDL CTC 2026 Fall rules](https://dorahacks.io/hackathon/buidl-ctc-2026-fall/detail).
+Official authority: [DoraHacks rules](https://dorahacks.io/hackathon/buidl-ctc-2026-fall/detail). Deadline: September 13, 2026, 23:59 ET (September 14, 10:59 Bangkok); winner announcement: September 20.

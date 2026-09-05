@@ -13,6 +13,7 @@ const required = [
   'ATTESTLOCK_ASC_ADDRESS',
   'RELAYER_ADDRESS',
   'INVALID_SOURCE_TX_HASH',
+  'EXPECTED_COMMIT_SHA',
 ];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing ${key}`);
@@ -51,7 +52,7 @@ const readiness = await ready.json();
 if (
   readiness.schemaVersion !== 2 ||
   readiness.status !== 'ready' ||
-  !readiness.version ||
+  readiness.version !== process.env.EXPECTED_COMMIT_SHA ||
   !readiness.checks ||
   Object.values(readiness.checks).some((value) => value !== true) ||
   !Number.isSafeInteger(readiness.latestAttestedHeight) ||
@@ -63,6 +64,12 @@ if (
   throw new Error('Worker readiness is incomplete or lacks an active attestation height');
 }
 const publicStats = await stats.json();
+if (
+  publicStats.protocolStatus !== 'current' ||
+  !publicStats.protocolObservedAt ||
+  !Number.isSafeInteger(publicStats.asOfBlock)
+)
+  throw new Error('Protocol statistics are stale or unavailable.');
 for (const key of [
   'totalJobs',
   'uniqueWallets',

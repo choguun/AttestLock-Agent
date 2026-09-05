@@ -4,6 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PostgresJobStore } from './store.js';
 
 const databaseUrl = process.env.DATABASE_TEST_URL;
+if (process.env.CI && !databaseUrl)
+  throw new Error('CI requires DATABASE_TEST_URL; PostgreSQL tests must not skip.');
 const describeDatabase = databaseUrl ? describe : describe.skip;
 
 describeDatabase('PostgresJobStore', () => {
@@ -26,16 +28,23 @@ describeDatabase('PostgresJobStore', () => {
     const wallet = Wallet.createRandom().address;
     const txHash = Wallet.createRandom().privateKey;
     const job = await store.createJob(txHash, wallet);
-    expect((await store.claimNextRunnable())?.id).toBe(job.id);
-    await store.transition(job.id, {
-      status: 'preflight',
-      evidence: { lockId: `0x${'78'.repeat(32)}` },
-    });
+    const claimed = await store.claimNextRunnable();
+    expect(claimed?.id).toBe(job.id);
+    await store.transition(
+      job.id,
+      {
+        status: 'preflight',
+        evidence: { lockId: `0x${'78'.repeat(32)}` },
+      },
+      claimed!.leaseToken
+    );
 
+    expect(await store.recoverInterrupted()).toBe(0);
+    await sql`update jobs set lease_expires_at = now() - interval '1 second' where id = ${job.id}`;
     expect(await store.recoverInterrupted()).toBe(1);
     const recovered = await store.getJob(job.id);
     expect(recovered?.status).toBe('queued');
-    expect(recovered?.attemptCount).toBe(1);
+    expect(recovered?.attemptCount).toBe(0);
     expect(recovered?.evidence).toEqual({ lockId: `0x${'78'.repeat(32)}` });
 
     const attempts = await sql<Array<{ outcome: string }>>`
@@ -125,5 +134,44 @@ describeDatabase('PostgresJobStore', () => {
     expect(first.txHash).toBe(mixedCaseHash.toLowerCase());
     const rows = await sql<Array<{ count: number }>>`select count(*)::int as count from jobs`;
     expect(rows[0]?.count).toBe(1);
+  });
+
+  it('serializes migration startup and preserves evidence during wallet-scoped deduplication', async () => {
+    const secondStore = new PostgresJobStore(databaseUrl!);
+    try {
+      await Promise.all([store.init(), secondStore.init()]);
+    } finally {
+      await secondStore.close();
+    }
+    const hash = `0x${'AB'.repeat(32)}`;
+    const attacker = await store.createJob(hash, Wallet.createRandom().address);
+    await store.transition(attacker.id, { status: 'refused', errorCode: 'BORROWER_MISMATCH' });
+    const borrower = Wallet.createRandom().address;
+    const actual = await store.createJob(hash.toLowerCase(), borrower);
+    expect(actual.id).not.toBe(attacker.id);
+    expect((await store.createJob(hash, borrower.toLowerCase())).id).toBe(actual.id);
+    expect((await store.getJob(attacker.id))?.errorCode).toBe('BORROWER_MISMATCH');
+  });
+
+  it('fences expired owners and atomically records an outbox before broadcasting', async () => {
+    await store.createJob(`0x${'56'.repeat(32)}`, Wallet.createRandom().address);
+    const first = (await store.claimNextRunnable())!;
+    expect(await store.recoverInterrupted()).toBe(0);
+    await sql`update jobs set lease_expires_at = now() - interval '1 second' where id = ${first.id}`;
+    const second = (await store.claimNextRunnable())!;
+    const submission = {
+      jobId: first.id,
+      txHash: `0x${'78'.repeat(32)}`,
+      relayer: '102031:test',
+      rawTransaction: '0xdeadbeef',
+    };
+    await expect(store.saveSubmission(submission, first.leaseToken)).rejects.toThrow();
+    expect(await store.getSubmission(first.id)).toBeNull();
+    await store.withRelayerLock(submission.relayer, () =>
+      store.saveSubmission(submission, second.leaseToken)
+    );
+    expect(await store.getSubmission(first.id)).toMatchObject(submission);
+    expect((await store.getJob(first.id))?.evidence.creditcoinSubmissionTxHash).toBe(submission.txHash);
+    await expect(store.transition(first.id, { status: 'failed' }, first.leaseToken)).rejects.toThrow();
   });
 });

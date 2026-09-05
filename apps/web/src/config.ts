@@ -35,6 +35,7 @@ function isLiveTxHash(value: string): boolean {
 }
 
 export const isConfigured =
+  !previewMode &&
   Boolean(config.apiUrl) &&
   [
     config.mockUsdcAddress,
@@ -43,7 +44,7 @@ export const isConfigured =
     config.attestLockAscAddress,
     config.mockUsdAddress,
   ].every(isDeployedAddress) &&
-  (!env.PROD || previewMode || isLiveTxHash(config.invalidTxHash));
+  (!env.PROD || isLiveTxHash(config.invalidTxHash));
 
 if (env.PROD && !previewMode && !isConfigured) {
   throw new Error(

@@ -662,6 +662,55 @@ contract AttestLockASCTest is Test {
         assertEq(borrowed, 0);
         assertEq(repaid, 0);
         assertEq(outstanding, 0);
+        assertEq(asset.balanceOf(address(pool)), 1_000_000e6);
+        assertEq(asset.balanceOf(profileOwner), 0);
+    }
+
+    function testFuzzRejectedProofPreservesExistingDebtAndEveryReplayKey(uint8 seed) external {
+        bytes memory first = _validEncodedTx();
+        _mockVerifier(first, true, 0);
+        _execute(first, 1);
+        vm.prank(borrower);
+        pool.borrow(lockId, 40e6);
+        bytes32 candidate = keccak256("candidate-lock");
+        uint8 mode = seed % 8;
+        bytes memory invalid = _encodedLockTx(
+            mode == 1 ? 0 : 1,
+            mode == 2 ? address(0xBAD) : sourceVault,
+            mode == 3 ? address(0xBAD) : sourceToken,
+            mode == 4 ? 1 : 100e6,
+            uint64(block.timestamp + (mode == 5 ? 1 days : 14 days)),
+            mode == 6 ? bytes32(0) : mode == 7 ? lockId : candidate
+        );
+        vm.clearMockedCalls();
+        _mockVerifier(invalid, mode != 0, 1);
+        bytes32 beforeState = _protocolSnapshot(candidate);
+        vm.expectRevert();
+        _execute(invalid, 1);
+        assertEq(_protocolSnapshot(candidate), beforeState);
+    }
+
+    function _protocolSnapshot(bytes32 candidate) internal view returns (bytes32) {
+        (bool firstOk, bytes memory firstLine) =
+            address(pool).staticcall(abi.encodeWithSignature("lines(bytes32)", lockId));
+        (bool secondOk, bytes memory secondLine) =
+            address(pool).staticcall(abi.encodeWithSignature("lines(bytes32)", candidate));
+        (bool profileOk, bytes memory profile) =
+            address(pool).staticcall(abi.encodeWithSignature("borrowerProfiles(address)", borrower));
+        require(firstOk && secondOk && profileOk);
+        return keccak256(
+            abi.encode(
+                firstLine,
+                secondLine,
+                profile,
+                asc.usedLocks(lockId),
+                asc.usedLocks(candidate),
+                asc.processedQueries(keccak256(abi.encodePacked(uint256(1), blockHeight, uint256(0)))),
+                asc.processedQueries(keccak256(abi.encodePacked(uint256(1), blockHeight, uint256(1)))),
+                asset.balanceOf(address(pool)),
+                asset.balanceOf(borrower)
+            )
+        );
     }
 
     function _lineParts(bytes32 id)

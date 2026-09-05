@@ -7,6 +7,8 @@ import {
 } from '@attestlock/shared';
 import {
   Interface,
+  AbiCoder,
+  keccak256,
   ZeroAddress,
   ZeroHash,
   getAddress,
@@ -21,6 +23,8 @@ export interface SourceLockFact {
   lockId: string;
   amount: bigint;
   unlockAt: number;
+  commonHash?: string;
+  receiptHash?: string;
 }
 
 export class SourceLockValidator {
@@ -115,6 +119,53 @@ export class SourceLockValidator {
         'The remaining lock term cannot cover the line and safety buffer.'
       );
     }
-    return { blockNumber: receipt.blockNumber, lockId, amount, unlockAt };
+    const abi = AbiCoder.defaultAbiCoder();
+    const commonHash = keccak256(
+      abi.encode(
+        ['uint64', 'uint64', 'address', 'bool', 'address', 'uint256', 'bytes'],
+        [
+          transaction.nonce,
+          transaction.gasLimit,
+          transaction.from,
+          false,
+          transaction.to,
+          transaction.value,
+          transaction.data,
+        ]
+      )
+    );
+    const receiptHash = keccak256(
+      abi.encode(
+        ['uint8', 'uint64', 'tuple(address,bytes32[],bytes)[]', 'bytes'],
+        [
+          receipt.status,
+          receipt.gasUsed,
+          receipt.logs.map((entry) => [entry.address, entry.topics, entry.data]),
+          receipt.logsBloom,
+        ]
+      )
+    );
+    return { blockNumber: receipt.blockNumber, lockId, amount, unlockAt, commonHash, receiptHash };
+  }
+
+  assertProofMatches(txBytes: string, _job: Job, fact: SourceLockFact): void {
+    try {
+      const [type, chunks] = AbiCoder.defaultAbiCoder().decode(['uint8', 'bytes[]'], txBytes);
+      const expectedChunks = type <= 2n ? 3 : 4;
+      if (
+        type > 4n ||
+        chunks.length !== expectedChunks ||
+        !fact.commonHash ||
+        !fact.receiptHash ||
+        keccak256(chunks[0]) !== fact.commonHash ||
+        keccak256(chunks[expectedChunks - 1]) !== fact.receiptHash
+      )
+        throw new Error('mismatch');
+    } catch {
+      throw new RefusedError(
+        'PROOF_SOURCE_MISMATCH',
+        'The proof-contained transaction and receipt do not match the requested source lock.'
+      );
+    }
   }
 }

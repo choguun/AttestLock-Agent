@@ -13,12 +13,12 @@ AttestLock turns a Sepolia escrow transaction into a bounded Creditcoin credit l
 
 ## Problem
 
-Cross-chain lenders usually trust a bridge, oracle signer, or centralized operator to report collateral. That makes the reporting layer part of the solvency boundary. AttestLock replaces that assertion with an Attestcoin transaction proof verified inside Creditcoin.
+Bridge-based collateral movement and operator-reported collateral introduce custody or reporting assumptions. Proof-gated peers already exist; see the attributed competitor comparison. AttestLock is an auditable fixed-term credit-origination reference for lending and risk teams. That makes the reporting layer part of the solvency boundary. AttestLock replaces that assertion with an Attestcoin transaction proof verified inside Creditcoin.
 
-## What is new
+## Product contribution (not a claim of unique invention)
 
 - Attestcoin is a hard credit gate rather than a decorative data widget.
-- Both the happy path and a visible refusal path are judge-testable.
+- The planned live happy/refusal paths are not submission evidence until deployed and recorded.
 - The autonomous worker is operational infrastructure, not a discretionary lender.
 - Credit lines are useful only after proof, while borrowing remains user-controlled.
 - Each proof-opened line and real draw or repayment updates a compact, reusable Creditcoin borrower profile without issuing a transferable credential.

@@ -15,7 +15,7 @@ MockUSDC → LockVault                       AttestLockASC → CreditPool → Mo
           PostgreSQL                                    borrower signature
 ```
 
-The wallet is the only component authorized to lock, withdraw, borrow, or approve repayment. Queue authorization uses EIP-712 data bound to the wallet, exact transaction hash, Sepolia chain, source vault, API origin, nonce, and expiry. The worker holds a dedicated testnet relayer key whose only intended action is proof submission. The proof verifier—not the worker database or UI—is authoritative for opening credit.
+Each source lock and draw requires its owner's wallet. Anyone may repay using their own approved tokens; repayment credits the borrower profile, not the payer. Queue authorization uses EIP-712 data bound to the wallet, exact transaction hash, Sepolia chain, source vault, API origin, nonce, and expiry. The worker holds a dedicated testnet relayer key whose only intended action is proof submission. The proof verifier—not the worker database or UI—is authoritative for opening credit.
 
 ## State machines
 
@@ -27,7 +27,7 @@ The wallet is the only component authorized to lock, withdraw, borrow, or approv
 
 `queued → waiting_attestation → proving → preflight → submitting → executed`
 
-Policy failures terminate in `refused`. Exhausted infrastructure retries terminate in `failed`. On process restart, in-flight states return to `queued`; on-chain replay checks make resubmission safe.
+Policy failures terminate in `refused`. Exhausted infrastructure retries terminate in `failed`. Only expired 60-second leases are reclaimed. UUID fencing rejects stale owners and leases renew every 20 seconds. Recorded signed submissions reconcile before source lookup or new-loan term checks; an expired source lock cannot erase a successful destination execution.
 
 ### Credit line
 
@@ -45,17 +45,19 @@ Policy failures terminate in `refused`. Exhausted infrastructure retries termina
 
 ## Operational design
 
-- Versioned PostgreSQL migrations persist challenges, jobs, attempts, evidence, and retry schedule.
+- Versioned migrations execute under a PostgreSQL advisory lock and preserve jobs/attempts. Normalization collisions abort with an actionable report; no evidence is silently removed.
+- Wallet-scoped normalized transaction uniqueness prevents reservation abuse. Relayer advisory locks and a unique pending outbox serialize nonce allocation.
 - The target deployment is one Railway worker replica in Singapore. Atomic row claiming remains safe if a second replica is introduced.
-- Transient failures retry after 5, 30, and 120 seconds, then fail closed.
+- Proof/RPC failures retry after 5, 30, and 120 seconds. Attestation polling and pending signed broadcasts are resumable 15-second steps and do not consume that proof retry budget or monopolize the queue.
 - Typed challenges expire after a short window, authorize one transaction, and are consumed once.
 - Transactional per-wallet quotas and IP rate limits bound relayer spend.
-- A submitted Creditcoin transaction hash is persisted before confirmation and reconciled on restart.
+- Signed Creditcoin bytes and their hash are persisted atomically before broadcast. Uncertain broadcasts resend identical bytes, never a new transaction. Readiness failure blocks new broadcasts but not receipt reconciliation.
 - Browser wallet transactions are journaled before confirmation by wallet, chain, and action; REST plus receipts recover state after refresh without rebroadcasting.
 - SSE gives the browser immediate updates; REST remains the recovery path.
 - `/ready` schema version 2 fails unless database, both RPCs, all deployed bytecode and immutable/one-time bindings, Sepolia ChainInfo registration, an observed height advance within the freshness window, ProofBuilder, and relayer funding pass. Its first height observation is intentionally not enough.
-- `/api/stats` exposes aggregate job outcomes, on-chain line/draw counts, atomic credit totals, and latest attested height; it never returns wallet lists.
-- A scheduled production smoke independently checks hosted endpoints, CORS, chain IDs, bytecode, native ChainInfo, relayer funding, and contract bindings.
+- `/api/stats` exposes aggregate counts without wallet lists. RPC failure returns the last snapshot as `stale`, or nullable fields as `unavailable`; `protocolObservedAt` and `asOfBlock` identify the observation.
+- Readiness probes run independently with bounded timeouts, single-flight caching, and background sampling. Health probes bypass public quotas. SSE connections are bounded; proxy forwarding is trusted only for explicitly verified CIDRs.
+- The implemented six-hour production smoke (inactive until live configuration is enabled) checks hosted endpoints, CORS, chain IDs, bytecode, native ChainInfo, relayer funding, and contract bindings.
 
 ## Creditcoin borrower profile
 

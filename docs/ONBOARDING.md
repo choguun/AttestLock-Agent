@@ -2,16 +2,18 @@
 
 AttestLock's first user is a Creditcoin testnet lending or risk team that needs a bounded credit decision from a collateral fact on another chain without bridge custody.
 
+Five minutes is a setup target, not an end-to-end latency guarantee. Faucet, wallet, attestation, and proof-builder delays vary. The current hosted preview cannot execute this path.
+
 ## Borrower path
 
 1. Open the hosted app and connect an EIP-1193 wallet.
-2. Switch to Sepolia, claim the one-time `100 mUSDC` faucet, and approve the vault.
+2. Switch to Sepolia, claim the one-time `1,000 mUSDC` faucet, and approve the vault.
 3. Lock `100 mUSDC` for 15 days. The app immediately asks for an EIP-712 signature authorizing only that transaction hash.
 4. Follow the persisted job through attestation, proof generation, preflight, and Creditcoin execution. Refreshing during the proof recovers jobs over REST/SSE; already-submitted wallet transactions are read from the local journal rather than broadcast again.
 5. Switch to Creditcoin testnet. Confirm the 50 mUSD line, borrower profile, proof transaction, and source transaction.
 6. Borrow with the connected wallet. The worker cannot sign this transaction.
 
-The live path remains disabled until all deployed addresses and the worker origin are compiled into the production web bundle.
+The live path requires preview mode to be explicitly disabled as well as valid deployed addresses and the worker origin. Restoration never opens a signature prompt: choose Resume authorization or Continue repayment. Confirmed replacements/cancellations can be reconciled by hash in the journal; pending transactions continue to block duplicate sends.
 
 ## API example
 
@@ -74,4 +76,4 @@ The public, aggregate-only funnel is:
 
 `visit → wallet connect → source lock → executed proof → opened line → borrower draw`
 
-V1 exposes job and wallet totals without publishing wallet lists. Connect and draw conversion require privacy-preserving product analytics later; no interviews, pilots, or user counts are claimed for this hackathon build.
+V1 exposes job and wallet totals without publishing wallet lists. Visits and connects are not measured; distinct wallets that drew are observable from public pool events, not proof of independent people. Full conversion analytics require privacy-preserving product instrumentation later; no interviews, pilots, or user counts are claimed for this hackathon build.

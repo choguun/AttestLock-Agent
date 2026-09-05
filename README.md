@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: the hardened proof-gated contracts, reusable borrower profile, schema-v2 ChainInfo readiness, aggregate on-chain stats, database-backed API tests, refresh-safe browser flow, production smoke workflow, public repository, hosted judge-safe preview, and private PostgreSQL are complete. The live worker, Sepolia/Creditcoin contracts, native proof, explorer evidence, and videos remain pending and are deliberately not claimed.
+> Current status: local hardening is implemented and under release verification. The public site remains a preview. New encrypted testnet accounts have faucet funding; deployment, native proof, hosted execution, post-maturity repayment, and videos are separate pending gates. See the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
 
 **Hosted preview:** https://attestlock-web-production.up.railway.app
 
@@ -22,7 +22,7 @@ Sepolia LockVault
                            └─ borrower signs borrow()
 ```
 
-No valid proof means no line. The relayer cannot call `openLine`, borrow, repay, withdraw collateral, or transfer user funds.
+No valid proof means no line. The relayer cannot call `openLine`, draw another borrower's line, withdraw their collateral, or transfer their funds. Repayment is permissionless using the payer's own approved tokens; the worker never initiates repayment.
 
 ## Demo flow
 
@@ -61,7 +61,7 @@ The proof payload and decoder follow the [current official Attestcoin examples](
 
 ## Local verification
 
-Prerequisites: Node 22+, pnpm 11.24+, Foundry, and optionally PostgreSQL 17 for the six persistence and concurrency integration tests.
+Prerequisites: Node 22+, pnpm 11.24+, Foundry v1.7.1, and PostgreSQL 17 for the persistence and concurrency integration tests.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -108,9 +108,10 @@ forge script contracts/script/DeployCreditcoin.s.sol:DeployCreditcoin \
   --account attestlock-deployer --sender "$DEPLOYER_ADDRESS"
 ```
 
-Generate immutable sanitized manifests from the Foundry broadcast artifacts, then follow the evidence runbook:
+Before any broadcast, run `VERIFIED_CI_RUN=<successful-main-run> PROVENANCE_FILE=.tmp/deployment-provenance.json pnpm deployments:prepare` from clean merged main. Keep that provenance unchanged. Generate sanitized manifests from the corresponding broadcasts and compiled artifacts:
 
 ```bash
+PROVENANCE_FILE=.tmp/deployment-provenance.json \
 DEPLOYMENT_NETWORK=sepolia \
 BROADCAST_FILE=contracts/broadcast/DeploySource.s.sol/11155111/run-latest.json \
 OUTPUT_FILE=deployments/sepolia.json \
@@ -137,9 +138,9 @@ Deployment is not “done” until the proof transaction and borrower-signed bor
 | `GET /health`              | Railway health check                                             |
 | `GET /ready`               | Schema-v2 DB/RPC/bindings/ChainInfo/prover/relayer readiness     |
 
-The queue is idempotent by transaction hash. Typed challenges bind the wallet, transaction, Sepolia chain, source vault, API origin, nonce, and expiry. Quota enforcement and job claiming are transactional, and another wallet cannot claim an existing source transaction.
+The queue is idempotent by case-insensitive `(wallet, transaction hash)`. Typed challenges bind the wallet, transaction, Sepolia chain, source vault, API origin, nonce, and expiry. Quota enforcement and job claiming are transactional, and a wrong wallet cannot reserve another borrower's transaction. Different judges may queue the same junk hash; ownership is validated before proof acquisition.
 
-The hosted preview keeps transaction buttons disabled until the live API, all five contract addresses, and a known non-vault refusal transaction are configured. This is intentional: a polished preview is not presented as chain evidence.
+Preview mode disables all transaction writes even if addresses are configured. A live production build additionally requires the API, all five contract addresses, and a known non-vault refusal transaction. This is intentional: a polished preview is not presented as chain evidence.
 
 ## Security boundaries
 
@@ -166,8 +167,8 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 - [Competitive positioning](docs/COMPETITIVE.md)
 - [Five-minute onboarding](docs/ONBOARDING.md)
 - [90-second video script](docs/VIDEO_SCRIPT.md)
-- [Six-slide judge deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck.pptx)
-- [Six-slide judge deck (PDF)](docs/deck/AttestLock-Hackathon-Deck.pdf)
+- [Draft six-slide deck — stale measurements; not final evidence (PPTX)](docs/deck/AttestLock-Hackathon-Deck.pptx)
+- [Draft six-slide deck — stale screenshot; not final evidence (PDF)](docs/deck/AttestLock-Hackathon-Deck.pdf)
 
 ## Hackathon timing
 
@@ -176,4 +177,4 @@ Winners are scheduled to be announced on **September 20, 2026**.
 
 ## License
 
-MIT. Testnet software only; not audited and not financial advice.
+Original AttestLock code is MIT. Upstream libraries retain their licenses; archived research attribution is separate. Testnet software only; not audited and not financial advice.

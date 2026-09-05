@@ -16,7 +16,7 @@ Shipped in code:
 - official-ABI `AttestLockASC`, replay protection, exact receipt/event policy;
 - ASC-only `CreditPool`, six-decimal `MockUSD`, borrower-only borrow, open repayment;
 - reusable Creditcoin borrower profile updated only by proof-opened lines, draws, and repayments;
-- tx-bound EIP-712 worker API, case-insensitive transaction uniqueness, transactional quotas, PostgreSQL migrations, scale-safe claims, bounded-range restart reconciliation, deterministic refusals, retries, preflight, and SSE;
+- tx-bound EIP-712 worker API, case-insensitive wallet/transaction uniqueness, transactional quotas, PostgreSQL migrations, scale-safe claims, bounded-range restart reconciliation, deterministic refusals, retries, preflight, and SSE;
 - responsive wallet UI for source flow, transaction-journal refresh recovery, proof evidence, refusal, borrow, repay, profiles, and aggregate activity;
 - ChainInfo/prover/relayer readiness, production smoke, browser E2E, CI, deployment-manifest generation, clean-clone verification, and judge documentation.
 
@@ -29,13 +29,13 @@ Explicitly excluded: native ETH, multiple assets, price oracles, interest, liqui
 - [x] PostgreSQL integration tests, browser E2E, accessibility scan, and Foundry coverage run locally.
 - [x] ChainInfo chain registration, active/advancing attestation, ProofBuilder, bytecode, and relayer funding are required by readiness.
 - [x] Aggregate-only public statistics and reusable borrower profile are implemented.
-- [x] Live deployment scripts and sanitized manifests exist.
+- [x] Deployment scripts and example manifests exist; actual deployment manifests are pending.
 - [x] Public GitHub repository and green baseline CI; the completion branch must pass its own PR run before merge.
 - [ ] Sepolia and Creditcoin testnet deployments.
 - [ ] One live proof-to-line-to-borrow transcript.
 - [ ] Junk, tampered-proof, and replay live evidence.
 - [x] Railway project, Singapore web preview, worker skeleton, and private PostgreSQL. Worker activation awaits live addresses and relayer credentials.
-- [x] Visually verified six-slide PPTX/PDF with target user, distribution, ecosystem value, credibility, and roadmap.
+- [ ] Refresh and visually verify the final six-slide deck. Existing PPTX/PDF are drafts with stale measurements and a preview screenshot.
 - [ ] Recorded 90-second live demo.
 - [ ] DoraHacks submission.
 

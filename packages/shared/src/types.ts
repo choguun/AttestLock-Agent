@@ -37,12 +37,15 @@ export interface PublicStats {
   refusedJobs: number;
   failedJobs: number;
   latestAttestedHeight: number | null;
-  linesOpened: number;
-  borrowersWhoDrew: number;
-  totalCreditOpenedAtomic: string;
-  totalBorrowedAtomic: string;
-  totalRepaidAtomic: string;
-  outstandingDebtAtomic: string;
+  protocolStatus: 'current' | 'stale' | 'unavailable';
+  protocolObservedAt: string | null;
+  asOfBlock: number | null;
+  linesOpened: number | null;
+  borrowersWhoDrew: number | null;
+  totalCreditOpenedAtomic: string | null;
+  totalBorrowedAtomic: string | null;
+  totalRepaidAtomic: string | null;
+  outstandingDebtAtomic: string | null;
 }
 
 export type JobStats = Pick<
@@ -50,15 +53,19 @@ export type JobStats = Pick<
   'totalJobs' | 'uniqueWallets' | 'executedJobs' | 'refusedJobs' | 'failedJobs'
 >;
 
-export type ProtocolStats = Pick<
-  PublicStats,
-  | 'linesOpened'
-  | 'borrowersWhoDrew'
-  | 'totalCreditOpenedAtomic'
-  | 'totalBorrowedAtomic'
-  | 'totalRepaidAtomic'
-  | 'outstandingDebtAtomic'
->;
+export type ProtocolStats = {
+  [
+    K in keyof Pick<
+      PublicStats,
+      | 'linesOpened'
+      | 'borrowersWhoDrew'
+      | 'totalCreditOpenedAtomic'
+      | 'totalBorrowedAtomic'
+      | 'totalRepaidAtomic'
+      | 'outstandingDebtAtomic'
+    >
+  ]: NonNullable<PublicStats[K]>;
+};
 
 export interface ReadinessChecks {
   database: boolean;

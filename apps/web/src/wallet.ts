@@ -8,6 +8,7 @@ import {
   type Eip1193Provider,
   type JsonRpcSigner,
   type TransactionReceipt,
+  type TransactionResponse,
 } from 'ethers';
 import {
   CREDITCOIN_TESTNET_CHAIN_ID,
@@ -20,7 +21,8 @@ import {
   mockUsdAbi,
   mockUsdcAbi,
 } from '@attestlock/shared';
-import { config } from './config';
+import { config, isConfigured } from './config';
+import type { TransactionIdentity } from './transaction-journal';
 
 export interface WalletSession {
   provider: BrowserProvider;
@@ -29,7 +31,11 @@ export interface WalletSession {
   chainId: number;
 }
 
-export type SubmissionListener = (hash: string) => void;
+export type SubmissionListener = (hash: string, identity: TransactionIdentity) => void;
+
+function identityOf(tx: TransactionResponse): TransactionIdentity {
+  return { nonce: tx.nonce, to: tx.to, data: tx.data, value: tx.value.toString() };
+}
 
 type ObservableProvider = Eip1193Provider & {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
@@ -81,6 +87,7 @@ export async function switchChain(chainId: number): Promise<WalletSession> {
         },
       ],
     });
+    await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChainId }] });
   }
   return connectWallet();
 }
@@ -95,9 +102,10 @@ async function waitForSuccess(tx: {
 }
 
 export async function faucet(signer: JsonRpcSigner, onSubmitted?: SubmissionListener): Promise<string> {
+  requireLiveWrites();
   const token = new Contract(config.mockUsdcAddress, mockUsdcAbi, signer);
   const tx = await token.getFunction('faucet')();
-  onSubmitted?.(tx.hash);
+  onSubmitted?.(tx.hash, identityOf(tx));
   return waitForSuccess(tx);
 }
 
@@ -105,15 +113,17 @@ export async function approveCollateral(
   signer: JsonRpcSigner,
   onSubmitted?: SubmissionListener
 ): Promise<string> {
+  requireLiveWrites();
   const token = new Contract(config.mockUsdcAddress, mockUsdcAbi, signer);
   const tx = await token.getFunction('approve')(config.lockVaultAddress, MIN_COLLATERAL);
-  onSubmitted?.(tx.hash);
+  onSubmitted?.(tx.hash, identityOf(tx));
   return waitForSuccess(tx);
 }
 
 export function lockFactFromReceipt(receipt: TransactionReceipt): { lockId: string } {
   const iface = new Interface(lockVaultAbi);
   for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== config.lockVaultAddress.toLowerCase()) continue;
     try {
       const event = iface.parseLog(log);
       if (event?.name === 'CollateralLocked') return { lockId: String(event.args.lockId) };
@@ -128,10 +138,11 @@ export async function lockCollateral(
   signer: JsonRpcSigner,
   onSubmitted?: SubmissionListener
 ): Promise<{ txHash: string; lockId: string }> {
+  requireLiveWrites();
   const unlockAt = Math.floor(Date.now() / 1000) + 15 * 24 * 60 * 60;
   const vault = new Contract(config.lockVaultAddress, lockVaultAbi, signer);
   const tx = await vault.getFunction('lock')(MIN_COLLATERAL, unlockAt);
-  onSubmitted?.(tx.hash);
+  onSubmitted?.(tx.hash, identityOf(tx));
   const receipt = await tx.wait();
   if (!receipt || receipt.status !== 1) throw new Error('Collateral lock was not successful.');
   return { txHash: tx.hash, ...lockFactFromReceipt(receipt) };
@@ -158,17 +169,23 @@ export function canBorrowLine(
   address: string | undefined,
   chainId: number | undefined,
   lockId: string | undefined,
-  line: CreditLineView | null
+  line: CreditLineView | null,
+  amount = '50'
 ): boolean {
-  return Boolean(
-    address &&
-    chainId === CREDITCOIN_TESTNET_CHAIN_ID &&
-    lockId &&
-    line &&
-    getAddress(line.borrower) === getAddress(address) &&
-    Number(line.debt) < Number(line.limit) &&
-    line.maturity > Math.floor(Date.now() / 1000)
-  );
+  try {
+    return Boolean(
+      address &&
+      chainId === CREDITCOIN_TESTNET_CHAIN_ID &&
+      lockId &&
+      line &&
+      getAddress(line.borrower) === getAddress(address) &&
+      parseUnits(amount, 6) > 0n &&
+      parseUnits(amount, 6) <= parseUnits(line.limit, 6) - parseUnits(line.debt, 6) &&
+      line.maturity > Math.floor(Date.now() / 1000)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function readCreditLine(signer: JsonRpcSigner, lockId: string): Promise<CreditLineView> {
@@ -233,7 +250,13 @@ export function walletErrorMessage(error: unknown): string {
   if (candidate?.code === 4001 || candidate?.code === 'ACTION_REJECTED') {
     return 'Wallet request was rejected.';
   }
-  return candidate?.shortMessage ?? candidate?.message ?? String(error);
+  if (candidate?.code === 'TRANSACTION_REPLACED')
+    return 'Transaction replaced or cancelled. Resolve its confirmed replacement in the transaction journal.';
+  if (candidate?.code === 'INSUFFICIENT_FUNDS')
+    return 'Not enough testnet gas. Fund this wallet on the selected testnet.';
+  if (candidate?.code === 'NETWORK_ERROR' || candidate?.code === 'TIMEOUT')
+    return 'The wallet network is unavailable. Check the selected chain and retry.';
+  return 'Wallet action could not finish. Check the transaction journal and explorer before retrying.';
 }
 
 export async function borrow(
@@ -242,9 +265,10 @@ export async function borrow(
   amount: string,
   onSubmitted?: SubmissionListener
 ): Promise<string> {
+  requireLiveWrites();
   const pool = new Contract(config.creditPoolAddress, creditPoolAbi, signer);
   const tx = await pool.getFunction('borrow')(lockId, parseUnits(amount, 6));
-  onSubmitted?.(tx.hash);
+  onSubmitted?.(tx.hash, identityOf(tx));
   return waitForSuccess(tx);
 }
 
@@ -252,17 +276,28 @@ export async function repay(
   signer: JsonRpcSigner,
   lockId: string,
   amount: string,
-  onSubmitted?: (action: 'repay_approve' | 'repay', hash: string) => void
+  onSubmitted?: (action: 'repay_approve' | 'repay', hash: string, identity: TransactionIdentity) => void
 ): Promise<string> {
+  requireLiveWrites();
   const value = parseUnits(amount, 6);
   const stable = new Contract(config.mockUsdAddress, mockUsdAbi, signer);
-  const approval = await stable.getFunction('approve')(config.creditPoolAddress, value);
-  onSubmitted?.('repay_approve', approval.hash);
-  await waitForSuccess(approval);
+  const allowance = await stable.getFunction('allowance')(
+    await signer.getAddress(),
+    config.creditPoolAddress
+  );
+  if (allowance < value) {
+    const approval = await stable.getFunction('approve')(config.creditPoolAddress, value);
+    onSubmitted?.('repay_approve', approval.hash, identityOf(approval));
+    await waitForSuccess(approval);
+  }
   const pool = new Contract(config.creditPoolAddress, creditPoolAbi, signer);
   const tx = await pool.getFunction('repay')(lockId, value);
-  onSubmitted?.('repay', tx.hash);
+  onSubmitted?.('repay', tx.hash, identityOf(tx));
   return waitForSuccess(tx);
+}
+
+function requireLiveWrites(): void {
+  if (!isConfigured || config.previewMode) throw new Error('Transactions are disabled in preview mode.');
 }
 
 export function shortAddress(address: string): string {
