@@ -164,7 +164,12 @@ export default function App() {
     const revision = walletRevision.current;
     void restoreWallet()
       .then((restored) => {
-        if (restored && revision === walletRevision.current) setSession(restored);
+        if (restored && revision === walletRevision.current) {
+          setSession(restored);
+          setNotice(
+            `Restored ${shortAddress(restored.address)} on ${chainLabel(restored.chainId)}. No signature requested.`
+          );
+        }
       })
       .catch(() => undefined);
   }, []);

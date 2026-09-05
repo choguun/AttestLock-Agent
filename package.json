@@ -22,6 +22,7 @@
     "deployments:manifest": "node scripts/generate-deployment-manifest.mjs",
     "deployments:prepare": "node scripts/prepare-deployment.mjs",
     "evidence:live": "node scripts/verify-live-evidence.mjs",
+    "evidence:origination": "node scripts/publish-origination-evidence.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",

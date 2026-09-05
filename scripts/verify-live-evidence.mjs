@@ -10,6 +10,7 @@ import {
 import { readFile } from 'node:fs/promises';
 import { isExpectedProofRevert } from './proof-revert.mjs';
 import { validateTamperLinkage } from './proof-linkage.mjs';
+import { collectBorrowEvidence } from './borrow-evidence.mjs';
 
 const addressKeys = [
   'SOURCE_TOKEN_ADDRESS',
@@ -373,6 +374,15 @@ if (Number(line[3]) !== proofBlock.timestamp + 7 * 24 * 60 * 60) {
 }
 if (borrowBlock.timestamp >= Number(line[3])) throw new Error('Borrow transaction occurred after maturity.');
 if (repayBlock.timestamp < Number(line[3])) throw new Error('Repayment evidence is not post-maturity.');
+await collectBorrowEvidence(destination, process.env.BORROW_TX_HASH, {
+  borrower: expectedBorrower,
+  pool: addresses.CREDIT_POOL_ADDRESS,
+  asset: addresses.MOCK_USD_ADDRESS,
+  asc: addresses.ATTESTLOCK_ASC_ADDRESS,
+  lockId,
+  queryId,
+  proofTimestamp: proofBlock.timestamp,
+});
 
 const profile = await pool.borrowerProfiles(expectedBorrower);
 if (BigInt(profile[2]) - BigInt(profile[3]) !== BigInt(profile[4])) {
@@ -413,6 +423,7 @@ for (const [label, receipt] of [
 
 const evidence = {
   schemaVersion: 1,
+  acceptanceStage: 'complete',
   proofArguments: fixture.proofArguments,
   junkRefusal: {
     id: refusal.id,

@@ -301,6 +301,94 @@ describe('worker API', () => {
     expect(expired.statusCode).toBe(401);
   });
 
+  it('trusts forwarding only from explicitly pinned proxy peers', async () => {
+    const app = await buildServer(
+      new MemoryJobStore(),
+      {
+        ...config,
+        MAX_REQUESTS_PER_MINUTE: 1,
+        TRUSTED_PROXY_CIDRS: '10.42.0.7/32',
+      },
+      new InMemoryJobEvents()
+    );
+    apps.push(app);
+    for (const ip of ['198.51.100.1', '198.51.100.2']) {
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url: '/api/stats',
+            remoteAddress: '10.42.0.7',
+            headers: { 'x-forwarded-for': ip },
+          })
+        ).statusCode
+      ).toBe(200);
+    }
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/stats',
+          remoteAddress: '10.42.0.8',
+          headers: { 'x-forwarded-for': '198.51.100.3', 'x-real-ip': '198.51.100.4' },
+        })
+      ).statusCode
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/stats',
+          remoteAddress: '10.42.0.8',
+          headers: { 'x-forwarded-for': '198.51.100.5', 'x-real-ip': '198.51.100.6' },
+        })
+      ).statusCode
+    ).toBe(429);
+    expect((await app.inject({ method: 'GET', url: '/health', remoteAddress: '10.42.0.8' })).statusCode).toBe(
+      200
+    );
+    expect((await app.inject({ method: 'GET', url: '/ready', remoteAddress: '10.42.0.8' })).statusCode).toBe(
+      503
+    );
+  });
+
+  it('bounds actual SSE connections and frees their slots on disconnect', async () => {
+    const app = await buildServer(new MemoryJobStore(), config, new InMemoryJobEvents());
+    apps.push(app);
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const address = app.server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
+    const url = `http://127.0.0.1:${address.port}/api/events?wallet=${Wallet.createRandom().address}`;
+    const controllers: AbortController[] = [];
+    try {
+      for (let i = 0; i < 5; i++) {
+        const controller = new AbortController();
+        controllers.push(controller);
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: { origin: config.CORS_ORIGINS, 'x-forwarded-for': `198.51.100.${i + 1}` },
+        });
+        expect(response.status).toBe(200);
+        expect(new TextDecoder().decode((await response.body!.getReader().read()).value)).toContain(
+          ': connected'
+        );
+      }
+      expect((await fetch(url)).status).toBe(429);
+      controllers[0]!.abort();
+      await vi.waitFor(async () => {
+        const controller = new AbortController();
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          expect(response.status).toBe(200);
+        } finally {
+          controller.abort();
+        }
+      });
+    } finally {
+      controllers.forEach((controller) => controller.abort());
+    }
+  });
+
   it('allows configured CORS and rate-limits abusive clients', async () => {
     const app = await buildServer(
       new MemoryJobStore(),

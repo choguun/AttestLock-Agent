@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: all five contracts are publicly verified. A real 100 mUSDC lock opened exactly 50 mUSD of credit through native `0x0FD2`; the Railway relayer submitted it. Junk refusal, unused-query tamper and identical-query replay are recorded. The worker and live-configured web pass production smoke. Full hosted-wallet draw, post-maturity repayment and public videos remain acceptance gates. See [live observations](docs/LIVE_TESTNET.md), the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
+> Current status: all five contracts are publicly verified. A real 100 mUSDC lock opened exactly 50 mUSD of credit through native `0x0FD2`; the Railway relayer submitted the proof, and the borrower subsequently drew 50 mUSD through the hosted app and Rabby. Junk refusal, unused-query tamper and identical-query replay are recorded. Scheduled production smoke passed on release `b7e71f2`. Full browser onboarding, post-maturity repayment and public videos remain acceptance gates. See [live observations](docs/LIVE_TESTNET.md), the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
 
 **Live testnet app:** https://attestlock-web-production.up.railway.app
 
@@ -125,6 +125,14 @@ Set `REQUIRE_VERIFIED=true` when generating final manifests. The generator uses 
 
 Deployment is not “done” until the proof transaction and borrower-signed borrow are visible on both explorers.
 
+Recheck the recorded draw and historical positive/negative states without a wallet or signing credentials:
+
+```bash
+BORROW_TX_HASH=0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4 pnpm evidence:origination
+```
+
+This publishes an explicitly partial `borrow-demonstrated` snapshot. `pnpm evidence:live` remains the strict final checker and requires the real post-maturity repayment transaction; neither command sends transactions.
+
 ## API
 
 | Route                      | Purpose                                                          |
@@ -167,8 +175,8 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 - [Competitive positioning](docs/COMPETITIVE.md)
 - [Five-minute onboarding](docs/ONBOARDING.md)
 - [90-second video script](docs/VIDEO_SCRIPT.md)
-- [Six-slide live-origination deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck-live.pptx)
-- [Visually verified live-origination deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-live.pdf)
+- [Six-slide proof-and-draw deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck-borrow.pptx)
+- [Visually verified proof-and-draw deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-borrow.pdf)
 
 ## Hackathon timing
 

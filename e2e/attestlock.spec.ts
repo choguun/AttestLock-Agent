@@ -387,6 +387,7 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await page.goto('http://127.0.0.1:4174');
 
   await expect(page.getByRole('button', { name: '0x5555…5555' })).toBeVisible();
+  await expect(page.locator('.notice')).toContainText('No signature requested.');
   await expect(page.getByText('Sepolia', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Public protocol activity')).toContainText('11,630,230');
 
@@ -423,6 +424,22 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
+});
+
+test('published real draw evidence is wallet-free and remains explicitly partial', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('http://127.0.0.1:4174');
+  const evidence = page.getByLabel('Wallet-free judge evidence');
+  await expect(evidence).toContainText('borrower signed a 50 mUSD draw');
+  await expect(evidence).toContainText('Post-maturity repayment');
+  await expect(evidence).toContainText('50000000 borrowed − 0 repaid = 50000000 debt');
+  await expect(evidence.getByRole('link', { name: /borrow: block 5434865/ })).toHaveAttribute(
+    'href',
+    'https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4'
+  );
+  await evidence.getByText('Official seven-argument proof payload').click();
+  await expect(evidence.locator('pre')).toContainText('11639758');
+  expect((await new AxeBuilder({ page }).include('#judge-evidence').analyze()).violations).toEqual([]);
 });
 
 for (const stage of ['approve', 'lock', 'borrow', 'repay_approve', 'repay'] as const) {

@@ -3,7 +3,7 @@ import { config } from './config';
 
 export interface JudgeArtifact {
   schemaVersion: 1;
-  acceptanceStage?: 'complete' | 'native-origination';
+  acceptanceStage: 'complete' | 'native-origination' | 'borrow-demonstrated';
   checkedAt: string;
   proofArguments: unknown[];
   lock: {
@@ -26,7 +26,7 @@ export function parseJudgeArtifact(value: unknown): JudgeArtifact {
   if (
     !artifact ||
     artifact.schemaVersion !== 1 ||
-    ![undefined, 'complete', 'native-origination'].includes(artifact.acceptanceStage) ||
+    !['complete', 'native-origination', 'borrow-demonstrated'].includes(artifact.acceptanceStage) ||
     !Number.isFinite(Date.parse(artifact.checkedAt)) ||
     !Array.isArray(artifact.proofArguments) ||
     artifact.proofArguments.length !== 7 ||
@@ -41,7 +41,8 @@ export function parseJudgeArtifact(value: unknown): JudgeArtifact {
   )
     throw new Error('Incomplete judge evidence.');
   const requiredReceipts = ['lock', 'proof', 'junk', 'tamperedProof', 'duplicateQuery'];
-  if (artifact.acceptanceStage !== 'native-origination') requiredReceipts.push('borrow', 'repay');
+  if (artifact.acceptanceStage !== 'native-origination') requiredReceipts.push('borrow');
+  if (artifact.acceptanceStage === 'complete') requiredReceipts.push('repay');
   for (const name of requiredReceipts) {
     const receipt = artifact.transactions?.[name];
     if (
@@ -106,6 +107,13 @@ export function JudgeEvidence() {
                 Partial live evidence: native proof opened the exact line; junk refusal, unused-query tamper
                 and query replay were verified. This snapshot does not certify a browser draw, post-maturity
                 repayment, videos, or submission readiness.
+              </p>
+            ) : artifact.acceptanceStage === 'borrow-demonstrated' ? (
+              <p>
+                Partial live evidence: native proof opened the exact line and the borrower signed a 50 mUSD
+                draw. The checker verified calldata, token movement, profile accounting, junk refusal, tamper
+                and query replay. Post-maturity repayment, the full browser onboarding, videos, and submission
+                readiness are not certified by this snapshot.
               </p>
             ) : (
               <p>
