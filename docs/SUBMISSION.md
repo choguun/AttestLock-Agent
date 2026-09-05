@@ -37,18 +37,18 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 
 ## Required links
 
-| Field                    | URL                                                                                                                                           |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public repository        | https://github.com/choguun/AttestLock-Agent                                                                                                   |
-| Hosted demo              | https://attestlock-web-production.up.railway.app                                                                                              |
-| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                                                                |
-| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                                                                              |
-| Demo video               | Pending live evidence recording                                                                                                               |
-| Technical appendix video | Pending uncut live evidence recording                                                                                                         |
-| Slide deck PDF           | https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck-live.pdf                                            |
-| Sepolia lock             | [100 mUSDC source lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)             |
-| Creditcoin proof         | [Native proof opens 50 mUSD](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9) |
-| Creditcoin borrow        | Pending borrower-signed draw                                                                                                                  |
+| Field                    | URL                                                                                                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public repository        | https://github.com/choguun/AttestLock-Agent                                                                                                                                                   |
+| Hosted demo              | https://attestlock-web-production.up.railway.app                                                                                                                                              |
+| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                                                                                                                |
+| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                                                                                                                              |
+| Demo video               | Pending live evidence recording                                                                                                                                                               |
+| Technical appendix video | Pending uncut live evidence recording                                                                                                                                                         |
+| Slide deck PDF           | [Verified six-slide PDF at immutable artifact commit](https://github.com/choguun/AttestLock-Agent/blob/621744bbf3d9a6e3de9df2ce52d25320a81804d5/docs/deck/AttestLock-Hackathon-Deck-live.pdf) |
+| Sepolia lock             | [100 mUSDC source lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)                                                             |
+| Creditcoin proof         | [Native proof opens 50 mUSD](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9)                                                 |
+| Creditcoin borrow        | Pending borrower-signed draw                                                                                                                                                                  |
 
 ## Team information
 
