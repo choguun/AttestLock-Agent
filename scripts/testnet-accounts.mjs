@@ -9,6 +9,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const roles = ['deployer', 'relayer', 'borrower'];
 const directory = join(homedir(), '.foundry', 'keystores');
 const bridge = join(dirname(fileURLToPath(import.meta.url)), 'testnet-keychain.py');
+function foundryJson(encrypted) {
+  const value = typeof encrypted === 'string' ? JSON.parse(encrypted) : encrypted;
+  // Foundry's eth-keystore parser requires lowercase crypto; ethers emits Crypto.
+  if (value.Crypto && !value.crypto) {
+    value.crypto = value.Crypto;
+    delete value.Crypto;
+  }
+  return JSON.stringify(value);
+}
 function keychain(operation, role, password) {
   if (process.platform !== 'darwin' || !roles.includes(role))
     throw new Error('Dedicated macOS testnet accounts only.');
@@ -38,12 +47,13 @@ async function createAccounts() {
       if (error.code !== 'ENOENT') throw error;
     }
     if (existing) {
+      if (existing.Crypto && !existing.crypto) await writeFile(path, foundryJson(existing), { mode: 0o600 });
       result[role] = { address: getAddress(`0x${existing.address}`), keystore: path, created: false };
       continue;
     }
     const wallet = Wallet.createRandom();
     const password = randomBytes(32).toString('base64url');
-    const encrypted = await wallet.encrypt(password);
+    const encrypted = foundryJson(await wallet.encrypt(password));
     keychain('add', role, password);
     await writeFile(path, encrypted, { flag: 'wx', mode: 0o600 });
     result[role] = { address: wallet.address, keystore: path, created: true };

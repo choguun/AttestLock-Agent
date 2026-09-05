@@ -27,7 +27,7 @@ Three dedicated testnet keys were generated locally on September 5, 2026. Keysto
 | Relayer       | `0xeD699A3FDe6C3552f312fAD2b38208b22186ef01` |
 | Demo borrower | `0xdc56fd8775Fe11B8E881A300aA878EAc7Bb1637A` |
 
-RPC checks on September 5 confirmed 0.05 Sepolia ETH and 10,000 testnet CTC at the deployer. These are free test tokens, not mainnet funds. [Sepolia faucet transaction](https://sepolia.etherscan.io/tx/0x1a361933c4e42c8942c81ae0acb5c20e48c15349570e7e9df525be91da5bf582). The Creditcoin faucet bot reported success in its official Discord channel. Relayer/borrower funding, broadcasts and manifests must be recorded separately.
+RPC checks on September 5 confirmed 0.05 Sepolia ETH and 10,000 testnet CTC at the deployer. These are free test tokens, not mainnet funds. [Sepolia faucet transaction](https://eth-sepolia.blockscout.com/tx/0x1a361933c4e42c8942c81ae0acb5c20e48c15349570e7e9df525be91da5bf582). The Creditcoin faucet bot reported success in its official Discord channel. Relayer/borrower funding, broadcasts and manifests must be recorded separately. The alternate Sepolia explorer is used because Etherscan blocks the CI link checker with HTTP 403.
 
 `node scripts/testnet-accounts.mjs` is idempotent on these encrypted keystores. Never print the output of a Keychain password retrieval, pass a secret on a command line, commit a raw wallet, or place a key in `VITE_*`. The helper's captured pipe is for local signing only. The production relayer must be transferred directly into sealed Railway storage and kept capped.
 
