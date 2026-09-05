@@ -1,6 +1,6 @@
 # Audit-driven completion status
 
-Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); Solidity deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. [PR #5](https://github.com/choguun/AttestLock-Agent/pull/5) merged as healthy hosted release `8d2c2bf`. Current native-receipt follow-up: `codex/live-proof-evidence`. See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
+Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); Solidity deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. PRs #5 and [#6](https://github.com/choguun/AttestLock-Agent/pull/6) delivered native proof evidence and healthy hosted release `b7e71f2`. Current follow-up: `codex/borrow-evidence-release`. See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
 
 ## Local implementation
 
@@ -16,7 +16,10 @@ Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/
 - [x] Pre-deployment compiler/CI provenance and stricter calldata/revert/state evidence checker.
 - [x] Fresh-clone audit release verification (100 tests, zero skips, seven browser paths), PR CI, and merge.
 - [x] Infrastructure/proof-input PR #5 CI and merge; 107 tests plus seven browser paths.
-- [ ] Native receipt, continuity-linkage, wallet-free partial snapshot and deck follow-up CI/merge.
+- [x] Native receipt, continuity-linkage, wallet-free partial snapshot and deck follow-up CI/merge (PR #6; 111 tests, zero skips, seven browser paths).
+- [x] Borrow-evidence follow-up local checks: 137 tests, zero skips, eight browser paths; exact draw checker, 22 rejection mutations, SSE slot release and proxy-boundary regressions.
+- [ ] Borrow-evidence follow-up CI, fresh public clone and deployed evidence snapshot.
+- [x] Real hosted borrower draw; exact historical calldata/event/token/profile checker and sanitized fixture.
 - [ ] Production browser crash/replacement drill and Railway proxy-boundary confirmation.
 
 ## Fresh accounts and faucet funding
@@ -41,11 +44,11 @@ RPC checks on September 5 confirmed 0.05 Sepolia ETH and 10,000 testnet CTC at t
 4. Completed: Singapore worker/PG, readiness-v2 advancement and current aggregate stats. Proxy boundary verification remains pending; arbitrary forwarded headers stay untrusted.
 5. Completed: web rebuilt with preview disabled, exact live API/addresses and known non-vault refusal hash; production smoke passes.
 6. Completed: unused-query tamper, valid native proof, identical-calldata query replay and unfunded junk refusal, with actual receipt/state evidence.
-7. Complete the hosted 100 mUSDC lock → 50 mUSD line → borrower-signed draw; publish the sanitized fixture.
+7. Completed: hosted borrower-signed 50 mUSD draw and sanitized draw fixture. Still run the whole browser onboarding: the first source faucet/approval/lock used the encrypted local signer.
 8. Actual maturity: **September 12, 2026, 18:21:15 Bangkok**. Post-maturity evidence cannot be manufactured by changing a local clock.
 9. Run the strict evidence command with every required ID/receipt; publish its output as `apps/web/public/evidence/verified.json`.
 10. Refresh the six-slide deck only with verified evidence; record both public videos, disclose time cuts, and test all links logged out.
-11. Six-hour smoke is enabled; [manual run 33963339337](https://github.com/choguun/AttestLock-Agent/actions/runs/33963339337) passed. Still require a successful scheduled run on the submission SHA.
+11. Six-hour smoke is enabled; [scheduled run 33966292097](https://github.com/choguun/AttestLock-Agent/actions/runs/33966292097) passed on `b7e71f2`. Require another successful scheduled run on the eventual submission SHA.
 12. User privately completes eligibility/personal fields in DoraHacks before the deadline.
 
 The observed deployment/native line are complete; score 93 and eligibility PASS are not. The first line did open on September 5; retain its real seven-day timestamp, never backdate repayment.

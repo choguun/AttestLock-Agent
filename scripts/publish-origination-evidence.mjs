@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Contract, Interface, JsonRpcProvider } from 'ethers';
 import { proofInterface, validateTamperLinkage } from './proof-linkage.mjs';
 import { isExpectedProofRevert } from './proof-revert.mjs';
+import { collectBorrowEvidence } from './borrow-evidence.mjs';
 const read = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const [input, native, fixture, original, deployment] = await Promise.all([
   read('evidence/testnet-origination-inputs-2026-09-05.json'),
@@ -183,13 +184,26 @@ try {
     transactions.junk.to?.toLowerCase() === fixture.sourceVault.toLowerCase()
   )
     throw new Error('No matching unfunded junk refusal');
-  const profile = await pool.borrowerProfiles(fixture.borrower, { blockTag: receipts.proof.blockNumber });
+  const draw = process.env.BORROW_TX_HASH
+    ? await collectBorrowEvidence(destination, process.env.BORROW_TX_HASH, {
+        borrower: fixture.borrower,
+        pool: addresses.CreditPool,
+        asset: addresses.MockUSD,
+        asc: addresses.AttestLockASC,
+        lockId,
+        queryId: fixture.queryId,
+        proofTimestamp: block.timestamp,
+      })
+    : null;
+  if (draw) receipts.borrow = draw.receipt;
+  const asOfBlock = draw?.block.number ?? receipts.proof.blockNumber;
+  const profile = await pool.borrowerProfiles(fixture.borrower, { blockTag: asOfBlock });
   if (profile[2] - profile[3] !== profile[4]) throw new Error('Invalid profile accounting');
   const artifact = {
     schemaVersion: 1,
-    acceptanceStage: 'native-origination',
+    acceptanceStage: draw ? 'borrow-demonstrated' : 'native-origination',
     checkedAt: new Date().toISOString(),
-    asOfBlock: receipts.proof.blockNumber,
+    asOfBlock,
     proofArguments: fixture.proofArguments,
     lock: {
       lockId,
@@ -197,8 +211,12 @@ try {
       limitAtomic: line[1].toString(),
       collateralAmountAtomic: line[4].toString(),
       maturity: Number(line[3]),
+      borrower: fixture.borrower,
+      collateralUnlockAt: Number(line[5]),
     },
     profile: {
+      lineCount: Number(profile[0]),
+      totalCreditOpenedAtomic: profile[1].toString(),
       totalBorrowedAtomic: profile[2].toString(),
       totalRepaidAtomic: profile[3].toString(),
       outstandingDebtAtomic: profile[4].toString(),
@@ -213,10 +231,11 @@ try {
     queryProcessed: await asc.processedQueries(fixture.queryId),
   };
   await mkdir('apps/web/public/evidence', { recursive: true });
+  if (draw) await writeFile('evidence/borrow-2026-09-05.json', JSON.stringify(draw, null, 2) + '\n');
   await writeFile('apps/web/public/evidence/verified.json', JSON.stringify(artifact, null, 2) + '\n');
   console.log(
     JSON.stringify({
-      published: 'native-origination-only',
+      published: artifact.acceptanceStage,
       proof: native.proof.hash,
       postMaturityAcceptance: false,
     })

@@ -18,7 +18,7 @@ Bridge-based collateral movement and operator-reported collateral introduce cust
 ## Product contribution (not a claim of unique invention)
 
 - Attestcoin is a hard credit gate rather than a decorative data widget.
-- The planned live happy/refusal paths are not submission evidence until deployed and recorded.
+- Verified native origination, borrower draw and negative-path receipts are linked below; full browser onboarding and the public video are still pending.
 - The autonomous worker is operational infrastructure, not a discretionary lender.
 - Credit lines are useful only after proof, while borrowing remains user-controlled.
 - Each proof-opened line and real draw or repayment updates a compact, reusable Creditcoin borrower profile without issuing a transferable credential.
@@ -37,18 +37,18 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 
 ## Required links
 
-| Field                    | URL                                                                                                                                                                                           |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public repository        | https://github.com/choguun/AttestLock-Agent                                                                                                                                                   |
-| Hosted demo              | https://attestlock-web-production.up.railway.app                                                                                                                                              |
-| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                                                                                                                |
-| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                                                                                                                              |
-| Demo video               | Pending live evidence recording                                                                                                                                                               |
-| Technical appendix video | Pending uncut live evidence recording                                                                                                                                                         |
-| Slide deck PDF           | [Verified six-slide PDF at immutable artifact commit](https://github.com/choguun/AttestLock-Agent/blob/621744bbf3d9a6e3de9df2ce52d25320a81804d5/docs/deck/AttestLock-Hackathon-Deck-live.pdf) |
-| Sepolia lock             | [100 mUSDC source lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)                                                             |
-| Creditcoin proof         | [Native proof opens 50 mUSD](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9)                                                 |
-| Creditcoin borrow        | Pending borrower-signed draw                                                                                                                                                                  |
+| Field                    | URL                                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public repository        | https://github.com/choguun/AttestLock-Agent                                                                                                     |
+| Hosted demo              | https://attestlock-web-production.up.railway.app                                                                                                |
+| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                                                                  |
+| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                                                                                |
+| Demo video               | Pending live evidence recording                                                                                                                 |
+| Technical appendix video | Pending uncut live evidence recording                                                                                                           |
+| Slide deck PDF           | [Visually checked proof-and-draw PDF](deck/AttestLock-Hackathon-Deck-borrow.pdf); pin the public artifact commit after this release passes CI   |
+| Sepolia lock             | [100 mUSDC source lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)               |
+| Creditcoin proof         | [Native proof opens 50 mUSD](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9)   |
+| Creditcoin borrow        | [Borrower-signed 50 mUSD draw](https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4) |
 
 ## Team information
 

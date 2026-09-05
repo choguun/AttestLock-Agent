@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "acceptanceStage": "native-origination",
-  "checkedAt": "2026-09-05T11:31:47.392Z",
-  "asOfBlock": 5434496,
+  "acceptanceStage": "borrow-demonstrated",
+  "checkedAt": "2026-09-05T13:11:38.892Z",
+  "asOfBlock": 5434865,
   "proofArguments": [
     1,
     11639758,
@@ -94,12 +94,16 @@
     "queryId": "0x7bb52ea9c6053bfce048d4a6186186004ebd72d38aded14e618c6c1778dd680f",
     "limitAtomic": "50000000",
     "collateralAmountAtomic": "100000000",
-    "maturity": 1789212075
+    "maturity": 1789212075,
+    "borrower": "0xdc56fd8775Fe11B8E881A300aA878EAc7Bb1637A",
+    "collateralUnlockAt": 1789817040
   },
   "profile": {
-    "totalBorrowedAtomic": "0",
+    "lineCount": 1,
+    "totalCreditOpenedAtomic": "50000000",
+    "totalBorrowedAtomic": "50000000",
     "totalRepaidAtomic": "0",
-    "outstandingDebtAtomic": "0"
+    "outstandingDebtAtomic": "50000000"
   },
   "transactions": {
     "lock": {
@@ -126,6 +130,11 @@
       "hash": "0x4f608b360d164a90d9609036e2f2dfc0bcd4682072d87534347d7a02d14f5a6c",
       "blockNumber": 5434507,
       "status": 0
+    },
+    "borrow": {
+      "hash": "0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4",
+      "blockNumber": 5434865,
+      "status": 1
     }
   },
   "invalidPathStateInvariant": true,

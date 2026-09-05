@@ -2,6 +2,8 @@
 
 Draft narration only. Record after live evidence exists. Label time cuts and previously completed examples on screen; attestation is not guaranteed to finish within this runtime.
 
+The September 5 reference has a real source lock and hosted borrower draw, but its source actions were signed locally. Do not present those source transactions as a recorded browser flow. The script below is for a new browser walkthrough (the UI requests a 15-day lock); the existing reference lock used 14 days plus approximately one hour. Show the actual dates/transaction hashes if using that previous example instead. Its maturity is September 12 at 11:21:15 UTC; repayment footage cannot precede that timestamp.
+
 **0:00–0:10**
 “Collateral on one chain should not require a bridge or oracle signer to become useful elsewhere. AttestLock keeps mock USDC on Sepolia and lets Creditcoin act only on a cryptographic proof.”
 
