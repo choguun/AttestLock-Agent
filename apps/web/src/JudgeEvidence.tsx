@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { config } from './config';
+import { formatUnits } from 'ethers';
+import { repositoryUrl } from './JudgeResources';
 
 export interface JudgeArtifact {
   schemaVersion: 1;
@@ -84,7 +86,11 @@ export function JudgeEvidence() {
     return () => controller.abort();
   }, []);
   return (
-    <section className="refusal-demo" id="judge-evidence" aria-label="Wallet-free judge evidence">
+    <section
+      className="refusal-demo judge-evidence"
+      id="judge-evidence"
+      aria-label="Wallet-free judge evidence"
+    >
       <div>
         <p className="eyebrow">No wallet required</p>
         <h2>Inspect the evidence.</h2>
@@ -96,8 +102,12 @@ export function JudgeEvidence() {
         ) : (
           <>
             <p>
-              Published checker snapshot: {artifact.checkedAt}. Re-run the repository evidence command to
-              verify current chain state.
+              Published checker snapshot: {artifact.checkedAt}. This is historical evidence, not a live
+              balance. Re-run the{' '}
+              <a href={`${repositoryUrl}/blob/main/docs/EVIDENCE.md`} target="_blank" rel="noreferrer">
+                documented evidence command
+              </a>{' '}
+              to verify current chain state.
             </p>
             <p>
               100 mUSDC collateral → 50 mUSD limit. Lock: <code>{artifact.lock.lockId}</code>
@@ -122,8 +132,20 @@ export function JudgeEvidence() {
               </p>
             )}
             <p>
-              Borrower accounting (atomic units): {artifact.profile.totalBorrowedAtomic} borrowed −{' '}
-              {artifact.profile.totalRepaidAtomic} repaid = {artifact.profile.outstandingDebtAtomic} debt.
+              Borrower accounting: {formatUnits(artifact.profile.totalBorrowedAtomic, 6)} mUSD borrowed −{' '}
+              {formatUnits(artifact.profile.totalRepaidAtomic, 6)} mUSD repaid ={' '}
+              {formatUnits(artifact.profile.outstandingDebtAtomic, 6)} mUSD debt.
+            </p>
+            <p>
+              Line maturity (UTC):{' '}
+              <time dateTime={new Date(artifact.lock.maturity * 1000).toISOString()}>
+                {new Date(artifact.lock.maturity * 1000).toISOString()}
+              </time>
+              . Post-maturity repayment must be evidenced after this timestamp.
+            </p>
+            <p>
+              Policy checks: 100 mUSDC → 50 mUSD; query recorded; rejected-path state unchanged. Full atomic
+              amounts and the query ID are in the downloadable evidence.
             </p>
             <ul>
               {Object.entries(artifact.transactions).map(([name, receipt]) => (
@@ -135,12 +157,26 @@ export function JudgeEvidence() {
                   >
                     {name}: block {receipt.blockNumber}, receipt status {receipt.status} ↗
                   </a>
+                  {name === 'junk' && (
+                    <p>
+                      Source transfer succeeded, but the worker refused it as a non-vault transaction. No
+                      destination proof submission or credit line was created for this job.
+                    </p>
+                  )}
+                  {name === 'tamperedProof' && (
+                    <p>Expected revert: mutated proof rejected while its query was unused.</p>
+                  )}
+                  {name === 'duplicateQuery' && (
+                    <p>Expected revert: identical proof calldata rejected after the valid execution.</p>
+                  )}
                 </li>
               ))}
             </ul>
             <details>
               <summary>Official seven-argument proof payload</summary>
-              <pre>{JSON.stringify(artifact.proofArguments, null, 2)}</pre>
+              <pre tabIndex={0} aria-label="Scrollable official proof payload">
+                {JSON.stringify(artifact.proofArguments, null, 2)}
+              </pre>
             </details>
             <a href="/evidence/verified.json" download>
               Download sanitized checker evidence

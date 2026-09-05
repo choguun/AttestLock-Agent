@@ -2,6 +2,10 @@
 
 A build, mock proof, faucet transfer, or polished preview is not deployed AttestLock integration.
 
+## Live UI follow-up — September 5, 2026
+
+The audit of deployed `c763e7f` found six UI/UX faults despite healthy liveness/readiness and advancing attestation. [LIVE_UI_AUDIT.md](LIVE_UI_AUDIT.md) records their fixes, **145 passing local tests with zero PostgreSQL skips**, and **15 browser tests**. Native proof, draw, and negative transaction evidence are unchanged. The PR delivery receipt must establish the eventual release SHA and hosted checks; the local result is not yet a deployment claim. Full browser onboarding, maturity repayment, and public videos remain pending.
+
 ## Audit-driven local verification — September 5, 2026
 
 Audit hardening merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4), main `6aec094ed321675199eaa2ff818e4a719c67a37b`; [merged-main CI 33959893700](https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700) passed. The following 100-test measurements describe that certified Solidity deployment commit. [PR #5](https://github.com/choguun/AttestLock-Agent/pull/5) subsequently passed **107 tests, zero skips, seven browser paths**, merged as `8d2c2bf`, and passed [main CI 33961818287](https://github.com/choguun/AttestLock-Agent/actions/runs/33961818287). Native-receipt follow-up: `codex/live-proof-evidence`.

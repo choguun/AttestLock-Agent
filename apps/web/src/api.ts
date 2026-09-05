@@ -4,6 +4,7 @@ import { config } from './config';
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${config.apiUrl}${path}`, {
     ...init,
+    signal: init?.signal ?? AbortSignal.timeout(10_000),
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
   const body = (await response.json()) as T & { error?: unknown };
