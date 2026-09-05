@@ -1,6 +1,6 @@
 # Audit-driven completion status
 
-Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. Current branch: `codex/live-testnet-evidence`. See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
+Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); Solidity deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. [PR #5](https://github.com/choguun/AttestLock-Agent/pull/5) merged as healthy hosted release `8d2c2bf`. Current native-receipt follow-up: `codex/live-proof-evidence`. See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
 
 ## Local implementation
 
@@ -15,7 +15,8 @@ Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/
 - [x] Wallet-free evidence view that shows unavailable rather than fabricating a proof.
 - [x] Pre-deployment compiler/CI provenance and stricter calldata/revert/state evidence checker.
 - [x] Fresh-clone audit release verification (100 tests, zero skips, seven browser paths), PR CI, and merge.
-- [ ] Follow-up evidence/infrastructure PR CI and merge.
+- [x] Infrastructure/proof-input PR #5 CI and merge; 107 tests plus seven browser paths.
+- [ ] Native receipt, continuity-linkage, wallet-free partial snapshot and deck follow-up CI/merge.
 - [ ] Production browser crash/replacement drill and Railway proxy-boundary confirmation.
 
 ## Fresh accounts and faucet funding
@@ -37,14 +38,14 @@ RPC checks on September 5 confirmed 0.05 Sepolia ETH and 10,000 testnet CTC at t
 1. Completed: green merged SHA and pre-broadcast artifact provenance.
 2. Completed: all five deployed/verified, bindings/code checked, pool funded with 1,000,000 mUSD.
 3. Completed: borrower funded with 0.01 Sepolia ETH and 5 CTC; relayer funded with 5 CTC and sealed in Railway. [Public records](../evidence/testnet-origination-inputs-2026-09-05.json) contain no signing material.
-4. Configure the existing Singapore worker/PG and verified proxy boundary; validate schema-v2 readiness and current aggregate stats.
-5. Rebuild web with preview disabled, exact live API/addresses and known non-vault refusal hash.
-6. Capture an unused-query tampered proof revert, then the valid native proof and identical-calldata query replay revert.
+4. Completed: Singapore worker/PG, readiness-v2 advancement and current aggregate stats. Proxy boundary verification remains pending; arbitrary forwarded headers stay untrusted.
+5. Completed: web rebuilt with preview disabled, exact live API/addresses and known non-vault refusal hash; production smoke passes.
+6. Completed: unused-query tamper, valid native proof, identical-calldata query replay and unfunded junk refusal, with actual receipt/state evidence.
 7. Complete the hosted 100 mUSDC lock → 50 mUSD line → borrower-signed draw; publish the sanitized fixture.
-8. Derive the repayment time from actual on-chain maturity. Post-maturity evidence cannot be manufactured by changing a local clock.
+8. Actual maturity: **September 12, 2026, 18:21:15 Bangkok**. Post-maturity evidence cannot be manufactured by changing a local clock.
 9. Run the strict evidence command with every required ID/receipt; publish its output as `apps/web/public/evidence/verified.json`.
 10. Refresh the six-slide deck only with verified evidence; record both public videos, disclose time cuts, and test all links logged out.
-11. Enable the existing six-hour smoke and require a successful scheduled run on the submission SHA.
+11. Six-hour smoke is enabled; [manual run 33963339337](https://github.com/choguun/AttestLock-Agent/actions/runs/33963339337) passed. Still require a successful scheduled run on the submission SHA.
 12. User privately completes eligibility/personal fields in DoraHacks before the deadline.
 
-No deployment, score of 93, or eligibility PASS is claimed by completing only the local checklist. If the first line starts later than September 5, recompute the seven-day repayment schedule; do not backdate it.
+The observed deployment/native line are complete; score 93 and eligibility PASS are not. The first line did open on September 5; retain its real seven-day timestamp, never backdate repayment.

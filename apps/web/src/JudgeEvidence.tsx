@@ -3,6 +3,7 @@ import { config } from './config';
 
 export interface JudgeArtifact {
   schemaVersion: 1;
+  acceptanceStage?: 'complete' | 'native-origination';
   checkedAt: string;
   proofArguments: unknown[];
   lock: {
@@ -25,6 +26,7 @@ export function parseJudgeArtifact(value: unknown): JudgeArtifact {
   if (
     !artifact ||
     artifact.schemaVersion !== 1 ||
+    ![undefined, 'complete', 'native-origination'].includes(artifact.acceptanceStage) ||
     !Number.isFinite(Date.parse(artifact.checkedAt)) ||
     !Array.isArray(artifact.proofArguments) ||
     artifact.proofArguments.length !== 7 ||
@@ -38,7 +40,9 @@ export function parseJudgeArtifact(value: unknown): JudgeArtifact {
     artifact.queryProcessed !== true
   )
     throw new Error('Incomplete judge evidence.');
-  for (const name of ['lock', 'proof', 'borrow', 'repay', 'junk', 'tamperedProof', 'duplicateQuery']) {
+  const requiredReceipts = ['lock', 'proof', 'junk', 'tamperedProof', 'duplicateQuery'];
+  if (artifact.acceptanceStage !== 'native-origination') requiredReceipts.push('borrow', 'repay');
+  for (const name of requiredReceipts) {
     const receipt = artifact.transactions?.[name];
     if (
       !receipt ||
@@ -97,10 +101,18 @@ export function JudgeEvidence() {
             <p>
               100 mUSDC collateral → 50 mUSD limit. Lock: <code>{artifact.lock.lockId}</code>
             </p>
-            <p>
-              Policy checker: exact receipt/event, borrower-signed draw, post-maturity repayment, replay
-              rejection, and unchanged invalid-path state.
-            </p>
+            {artifact.acceptanceStage === 'native-origination' ? (
+              <p>
+                Partial live evidence: native proof opened the exact line; junk refusal, unused-query tamper
+                and query replay were verified. This snapshot does not certify a browser draw, post-maturity
+                repayment, videos, or submission readiness.
+              </p>
+            ) : (
+              <p>
+                Policy checker: exact receipt/event, borrower-signed draw, post-maturity repayment, replay
+                rejection, and unchanged invalid-path state.
+              </p>
+            )}
             <p>
               Borrower accounting (atomic units): {artifact.profile.totalBorrowedAtomic} borrowed −{' '}
               {artifact.profile.totalRepaidAtomic} repaid = {artifact.profile.outstandingDebtAtomic} debt.

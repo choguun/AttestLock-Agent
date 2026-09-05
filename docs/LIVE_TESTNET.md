@@ -26,7 +26,19 @@ Deployment tools encountered two real-world differences. Foundry required `FOUND
 - Native `0x0FD2` returned exact `Error("Merkle proof validation failed")`, not a false boolean. Both worker classification and the strict evidence checker now recognize that exact observed reason. Other revert strings do not satisfy the negative gate.
 - Query ID: `0x7bb52ea9c6053bfce048d4a6186186004ebd72d38aded14e618c6c1778dd680f`.
 
-[Public source/funding/negative transcript](../evidence/testnet-origination-inputs-2026-09-05.json). Source actions were signed locally through the encrypted demo-borrower keystore; this does **not** establish the hosted browser-wallet acceptance path. The valid proof passes a live call simulation but has not yet opened a line in a successful transaction.
+[Public source/funding/negative transcript](../evidence/testnet-origination-inputs-2026-09-05.json). Source actions were signed locally through the encrypted demo-borrower keystore; this does **not** establish the hosted browser-wallet acceptance path.
+
+## Successful native origination
+
+- [Native proof transaction](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9): block **5434496**, **2026-09-05 11:21:15 UTC**, status **1**, gas **350,379**, signer the separate Railway relayer `0xeD699A3FDe6C3552f312fAD2b38208b22186ef01`.
+- The exact line is **100,000,000 collateral / 50,000,000 credit atomic units**, borrower `0xdc56…637A`, matching query and lock. Initial profile: one line, 50,000,000 credit opened, no draw or debt yet.
+- **Maturity: September 12, 2026, 11:21:15 UTC / 18:21:15 Bangkok**, derived from the actual opening block plus seven days. Post-maturity repayment must wait for this time.
+- [Executed API job](https://attestlock-worker-production.up.railway.app/api/jobs/bd5fdaf1-8a8f-4334-ae1f-6a5916080f28): **59,568 ms** queue-to-executed reconciliation, after source attestation was already available. This is not end-to-end lock latency or an SLA.
+- [Identical-calldata query replay](https://creditcoin-testnet.blockscout.com/tx/0x4f608b360d164a90d9609036e2f2dfc0bcd4682072d87534347d7a02d14f5a6c): block **5434507**, status **0**, gas **163,226**, exact `QueryAlreadyProcessed`; line, profile, both replay flags and pool/borrower balances unchanged.
+- [Actual junk refusal](https://attestlock-worker-production.up.railway.app/api/jobs/f41b50b0-f121-4cfb-9ec2-3dac4d8e603b): known non-vault source hash, `WRONG_SOURCE_CONTRACT`, no funded Creditcoin submission.
+- [Executed proof fixture](../fixtures/proofs/creditcoin-executed-2026-09-05.json) encodes the actual successful calldata. ProofBuilder extended continuity from **3 to 43 roots** between initial acquisition/tamper and execution; all transaction/query fields are unchanged. The checker verifies the prefix extension, exact byte-only tamper, and successful **historical native call of its original unmutated counterpart** before the unused-query rejection. It does not treat a changed proof anchor as an identical payload.
+
+[Native origination transcript](../evidence/native-origination-2026-09-05.json). `node scripts/publish-origination-evidence.mjs` rechecks the actual positive and negative receipts and historical states and publishes an explicitly **partial native-origination** wallet-free snapshot. This cannot certify draw, repayment, videos or final submission. The default full evidence command remains fail-closed without every required receipt.
 
 ## Hosting and remaining gates
 
@@ -34,4 +46,8 @@ The separate capped relayer was sealed directly into Railway. PostgreSQL remains
 
 The platform rejects new custom TOML paths. The replacement [.railway configuration](../.railway/README.md) was imported with secrets represented by `preserve()` and its initial plan verified no changes. The removed TOML files are recoverable from Git; no Railway service, database or volume was deleted. [Railway migration documentation](https://docs.railway.com/infrastructure-as-code).
 
-Pending: healthy hosted worker, valid native proof transaction, borrower draw, replay and junk record, live web/browser flow, actual seven-day repayment, scheduled smoke, final deck and public videos. Ingress proxy semantics remain unverified; no arbitrary forwarded headers are trusted. The final evidence checker intentionally still fails without the complete receipt set, especially post-maturity repayment.
+**Recovery verified:** release `8d2c2bf13c3a5d1d3ecfeef6e41245c9245e6d7b`, [merged-main CI 33961818287](https://github.com/choguun/AttestLock-Agent/actions/runs/33961818287), runs as worker deployment `b63fc834-34b7-4003-a756-dd882f048d77` and live web deployment `95ef618d-c767-44ac-b5a0-5139c5e4203f`. `/ready` observed advancement before permitting broadcast. Database, source/destination RPCs, bytecode, immutable bindings, ChainInfo, ProofBuilder and relayer funding all passed.
+
+[Production smoke 33963339337](https://github.com/choguun/AttestLock-Agent/actions/runs/33963339337) passed via manual dispatch. The existing six-hour schedule is enabled; a successful scheduled run against the final submission release remains a separate gate. Observed aggregate activity was two jobs, one authorized operator wallet, one executed and one refused—not independent users or market validation.
+
+Pending: borrower draw, full live browser-wallet flow, actual seven-day repayment, successful scheduled smoke on the final release, final media and public videos. Ingress proxy semantics remain unverified; no arbitrary forwarded headers are trusted. The full evidence checker intentionally still fails without the complete receipt set, especially post-maturity repayment. Use the executed fixture as `PROOF_FIXTURE_FILE` and the original fixture as `TAMPER_PROOF_FIXTURE_FILE` when rerunning it.

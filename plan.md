@@ -29,13 +29,13 @@ Explicitly excluded: native ETH, multiple assets, price oracles, interest, liqui
 - [x] PostgreSQL integration tests, browser E2E, accessibility scan, and Foundry coverage run locally.
 - [x] ChainInfo chain registration, active/advancing attestation, ProofBuilder, bytecode, and relayer funding are required by readiness.
 - [x] Aggregate-only public statistics and reusable borrower profile are implemented.
-- [x] Deployment scripts and example manifests exist; actual deployment manifests are pending.
+- [x] Deployment scripts and actual verified manifests exist, with pre-broadcast compiler/CI provenance.
 - [x] Public GitHub repository and green baseline CI; the completion branch must pass its own PR run before merge.
-- [ ] Sepolia and Creditcoin testnet deployments.
+- [x] Sepolia and Creditcoin testnet deployments; all five contracts verified.
 - [ ] One live proof-to-line-to-borrow transcript.
-- [ ] Junk, tampered-proof, and replay live evidence.
-- [x] Railway project, Singapore web preview, worker skeleton, and private PostgreSQL. Worker activation awaits live addresses and relayer credentials.
-- [ ] Refresh and visually verify the final six-slide deck. Existing PPTX/PDF are drafts with stale measurements and a preview screenshot.
+- [x] Junk, unused-query tampered-proof, and identical-query replay live evidence.
+- [x] Railway live web/worker/private PostgreSQL, native origination and manual production smoke. Six-hour schedule enabled; final-release scheduled success remains a gate.
+- [x] Refreshed six-slide `-live` PPTX/PDF with native receipts, QR and explicit remaining gates; all pages visually checked.
 - [ ] Recorded 90-second live demo.
 - [ ] DoraHacks submission.
 
