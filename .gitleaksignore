@@ -1,0 +1,4 @@
+# Exact false positives only: the public verified Sepolia ERC20 address in source.token/sourceToken.
+# 0x619d67E4765b22dd847144Ac4D39027753d60Eff is a deployed contract, not a signing key or API credential.
+e227edafd1bc93e2627e604c61d44e29d0a3d8a1:evidence/testnet-origination-inputs-2026-09-05.json:generic-api-key:9
+e227edafd1bc93e2627e604c61d44e29d0a3d8a1:fixtures/proofs/sepolia-lock-2026-09-05.json:generic-api-key:9
