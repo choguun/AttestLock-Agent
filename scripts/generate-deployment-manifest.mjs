@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { Contract, Interface, FetchRequest, JsonRpcProvider, getAddress, keccak256 } from 'ethers';
+import { resolveCreationReceipt } from './broadcast-receipts.mjs';
 
 const networks = {
   sepolia: {
@@ -43,9 +44,6 @@ const broadcast = JSON.parse(await readFile(broadcastFile, 'utf8'));
 const creates = broadcast.transactions.filter(
   (entry) => entry.transactionType === 'CREATE' && entry.contractName && entry.contractAddress
 );
-const receiptsByHash = new Map(
-  broadcast.receipts.map((receipt) => [String(receipt.transactionHash).toLowerCase(), receipt])
-);
 const request = new FetchRequest(rpcUrl);
 request.timeout = 15_000;
 const provider = new JsonRpcProvider(request);
@@ -84,8 +82,8 @@ for (const name of network.contracts) {
   const creation = creates.find((entry) => entry.contractName === name);
   if (!creation) throw new Error(`Broadcast is missing ${name}.`);
   const address = getAddress(creation.contractAddress);
-  const hash = creation.hash;
-  const receipt = receiptsByHash.get(hash.toLowerCase());
+  const receipt = resolveCreationReceipt(creation, broadcast.receipts);
+  const hash = receipt.transactionHash;
   if (!receipt || Number(receipt.status) !== 1) throw new Error(`${name} deployment did not succeed.`);
   const block = Number(receipt.blockNumber);
   const code = await provider.getCode(address, block);
@@ -137,6 +135,8 @@ for (const name of network.contracts) {
     address,
     constructorArguments: creation.arguments ?? [],
     deploymentTransaction: hash,
+    broadcastReportedTransaction: creation.hash,
+    broadcastHashMatchedReceipt: creation.hash.toLowerCase() === hash.toLowerCase(),
     deploymentBlock: block,
     deployedAt: new Date(deployedBlock.timestamp * 1000).toISOString(),
     runtimeCodeHash: codeHashes[name],

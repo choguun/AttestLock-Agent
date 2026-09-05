@@ -4,7 +4,7 @@ A build, mock proof, faucet transfer, or polished preview is not deployed Attest
 
 ## Audit-driven local verification — September 5, 2026
 
-Branch `codex/audit-driven-completion`, based on clean main `002546f3bce6412fc4a53db72e611b4064f9e8ef`. These measurements describe the implementation in this change; its exact release SHA and GitHub CI must be recorded after commit.
+Audit hardening merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4), main `6aec094ed321675199eaa2ff818e4a719c67a37b`; [merged-main CI 33959893700](https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700) passed. The following 100-test measurements describe that certified deployment commit. Current follow-up branch: `codex/live-testnet-evidence`.
 
 - `pnpm verify`: **100 tests passed, zero skips** with PostgreSQL enabled: 1 shared, 55 worker (including 8 PostgreSQL cases), 13 web, 31 Foundry.
 - `pnpm test:e2e`: **7 Chromium paths passed**, including refresh during approval, lock, borrow, repayment approval, repayment, and proof processing. Wallet/API state is mocked; the separate API suite exercises real HTTP SSE transport.
@@ -14,12 +14,12 @@ Branch `codex/audit-driven-completion`, based on clean main `002546f3bce6412fc4a
 - `pnpm audit --prod --audit-level high`: no known vulnerabilities; registry failures are not ignored. The CI audit is its own independent job.
 - `forge lint --root contracts`: only documented block-timestamp warnings for maturity/expiry policy and the invariant time gate.
 - Production configuration tests fail closed on missing/zero live variables. Preview disables writes even with addresses present.
-- Full-history secret and Markdown-link checks are configured in CI; local binaries are unavailable. Do not infer they passed from other tests.
+- Full-history secret and Markdown-link checks passed in merged-main CI. A fresh public clone passed all 100 tests with PostgreSQL (zero skips) and all seven browser paths.
 - The existing PPTX/PDF are **drafts with stale counts, coverage, and preview screenshot text**. They are not final judge evidence.
 
 ## Hosted observation — September 5, 2026
 
-Railway CLI inspection still reports:
+Historical morning inspection reported (superseded by the later update below):
 
 - Web preview: deployment `4695be59-8170-4620-9773-dcc039b38ba4`, Singapore, active.
 - Private PostgreSQL: running with persistent volume.
@@ -28,17 +28,19 @@ Railway CLI inspection still reports:
 
 This is a point-in-time observation, not a future uptime guarantee. Railway proxy CIDRs/header trust semantics are not yet verified for this deployment; arbitrary forwarding headers remain untrusted.
 
+**Later September 5 update:** all contracts are deployed/verified, the real source lock and proof fixture exist, and a tampered payload reverted with unchanged state. The capped relayer is sealed in Railway. The worker now has repository source, but its first build selected the legacy root web build and failed startup. This follow-up replaces the three TOML files with an imported, no-op-verified `.railway/railway.ts`. See [LIVE_TESTNET.md](LIVE_TESTNET.md) for exact provenance, transactions and pending acceptance. Failed deployment is not liveness.
+
 ## Gate 1 — deployment provenance
 
-- [ ] Deploy MockUSDC and LockVault on Sepolia `11155111`.
-- [ ] Deploy MockUSD, CreditPool and AttestLockASC on Creditcoin `102031`.
-- [ ] Verify all five contracts publicly and confirm runtime code hashes, constructor arguments, source bindings, verifier `0x0FD2`, one-time ASC configuration, and pool liquidity.
-- [ ] Generate manifests using pre-broadcast CI/artifact provenance and actual receipts. Never take the current checkout SHA as retrospective deployment provenance.
+- [x] Deploy MockUSDC and LockVault on Sepolia `11155111`.
+- [x] Deploy MockUSD, CreditPool and AttestLockASC on Creditcoin `102031`.
+- [x] Verify all five contracts publicly and confirm runtime code hashes, constructor arguments, source bindings, verifier `0x0FD2`, one-time ASC configuration, and pool liquidity.
+- [x] Generate manifests using pre-broadcast CI/artifact provenance and actual receipts. Never take the current checkout SHA as retrospective deployment provenance.
 
 ## Gate 2 — positive native path
 
-- [ ] Faucet 1,000 mUSDC; approve and lock 100 mUSDC for 15 days.
-- [ ] Attest the exact source block; generate and sanitize the real ProofBuilder tuple.
+- [x] Faucet 1,000 mUSDC; approve and lock 100 mUSDC (actual term: 14 days plus approximately one hour).
+- [x] Attest the exact source block; generate and sanitize the real ProofBuilder tuple.
 - [ ] Native `0x0FD2` execution opens exactly one 50 mUSD, seven-day line with the exact borrower/lock/query.
 - [ ] The borrower, not the relayer, signs the 50 mUSD draw.
 - [ ] After actual on-chain maturity, repay and confirm borrower accounting `borrowed - repaid == outstandingDebt`.
@@ -46,7 +48,7 @@ This is a point-in-time observation, not a future uptime guarantee. Railway prox
 ## Gate 3 — negative evidence
 
 - [ ] Real junk API job, matching source hash and deterministic refusal; no funded submission.
-- [ ] Broadcast tampered proof **while its query is unused**, verify exact verifier-failure selector and unchanged state.
+- [x] Broadcast tampered proof **while its query is unused**, verify exact native `Error("Merkle proof validation failed")` and unchanged state. The precompile reverts rather than returning false; the checker recognizes only this exact native error or the ASC false-return error.
 - [ ] Submit the valid proof, then broadcast its identical calldata and verify exact query-replay rejection.
 - [x] Duplicate-lock protection is tested by the deterministic Foundry harness. Do not fabricate a second distinct live proof for the immutable vault's same lock.
 
@@ -63,18 +65,18 @@ The live checker rejects arbitrary reverted transactions: it checks calldata mut
 
 ## Artifact table
 
-| Artifact                                             | Reference / disposition                                                             |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Public repository                                    | [choguun/AttestLock-Agent](https://github.com/choguun/AttestLock-Agent)             |
-| Audited main                                         | `002546f3bce6412fc4a53db72e611b4064f9e8ef`                                          |
-| Audited main CI                                      | [33900862465](https://github.com/choguun/AttestLock-Agent/actions/runs/33900862465) |
-| Current completion PR / release CI                   | Pending delivery of this branch                                                     |
-| Source/destination manifests                         | Pending actual deployment; `.example.json` files are templates                      |
-| Real proof fixture and proof/draw/repayment receipts | Pending                                                                             |
-| Hosted preview                                       | [Railway preview](https://attestlock-web-production.up.railway.app)                 |
-| Worker                                               | Reserved domain; no active deployment                                               |
-| Judge PDF/PPTX                                       | Existing draft, superseded for submission evidence until refreshed                  |
-| Public videos                                        | Pending                                                                             |
+| Artifact                                             | Reference / disposition                                                                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public repository                                    | [choguun/AttestLock-Agent](https://github.com/choguun/AttestLock-Agent)                                                                                                   |
+| Audited main                                         | `002546f3bce6412fc4a53db72e611b4064f9e8ef`                                                                                                                                |
+| Audited main CI                                      | [33900862465](https://github.com/choguun/AttestLock-Agent/actions/runs/33900862465)                                                                                       |
+| Current completion PR / release CI                   | [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4), [CI 33959893700](https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700); follow-up CI pending |
+| Source/destination manifests                         | [Sepolia](../deployments/sepolia.json), [Creditcoin](../deployments/creditcoin-testnet.json); `.example.json` remains templates                                           |
+| Real proof fixture and proof/draw/repayment receipts | [Real proof input](../fixtures/proofs/sepolia-lock-2026-09-05.json); successful proof/draw/repayment pending                                                              |
+| Hosted preview                                       | [Railway preview](https://attestlock-web-production.up.railway.app)                                                                                                       |
+| Worker                                               | Repository connected; first build failed, corrected configuration awaiting deploy                                                                                         |
+| Judge PDF/PPTX                                       | Existing draft, superseded for submission evidence until refreshed                                                                                                        |
+| Public videos                                        | Pending                                                                                                                                                                   |
 
 ## Sanitization and publication
 

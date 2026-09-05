@@ -44,6 +44,10 @@ export function ascRefusalCode(contract: Contract, error: unknown): string {
   if (!data) return 'ASC_PREFLIGHT_REVERTED';
   try {
     const decoded = contract.interface.parseError(data);
+    // Observed native 0x0FD2 behavior: invalid inclusion reverts with Error(string), not false.
+    // Match an exact known reason; arbitrary provider strings remain an unclassified preflight refusal.
+    if (decoded?.name === 'Error' && decoded.args[0] === 'Merkle proof validation failed')
+      return 'PROOF_VERIFICATION_FAILED';
     return decoded ? (refusalCodes[decoded.name] ?? 'ASC_PREFLIGHT_REVERTED') : 'ASC_PREFLIGHT_REVERTED';
   } catch {
     return 'ASC_PREFLIGHT_REVERTED';

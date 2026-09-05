@@ -15,6 +15,19 @@ const lockId = `0x${'11'.repeat(32)}`;
 const queryId = `0x${'22'.repeat(32)}`;
 
 describe('CreditcoinSubmitter helpers', () => {
+  it('classifies the observed native inclusion failure without exposing arbitrary revert text', () => {
+    const contract = new Contract(poolAddress, attestLockAscAbi);
+    expect(
+      ascRefusalCode(contract, {
+        data: contract.interface.encodeErrorResult('Error', ['Merkle proof validation failed']),
+      })
+    ).toBe('PROOF_VERIFICATION_FAILED');
+    expect(
+      ascRefusalCode(contract, {
+        data: contract.interface.encodeErrorResult('Error', ['private infrastructure detail']),
+      })
+    ).toBe('ASC_PREFLIGHT_REVERTED');
+  });
   it('aggregates only public protocol counts and atomic amounts', () => {
     const iface = new Interface(creditPoolAbi);
     const event = (name: string, values: readonly unknown[]) => {

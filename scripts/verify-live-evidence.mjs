@@ -8,6 +8,7 @@ import {
   Interface,
 } from 'ethers';
 import { readFile } from 'node:fs/promises';
+import { isExpectedProofRevert } from './proof-revert.mjs';
 
 const addressKeys = [
   'SOURCE_TOKEN_ADDRESS',
@@ -301,7 +302,7 @@ async function requireRevertReason(execution, name) {
   } catch (error) {
     data = error.data ?? error.info?.error?.data;
   }
-  if (typeof data !== 'string' || data !== proofInterface.encodeErrorResult(name))
+  if (!isExpectedProofRevert(data, name))
     throw new Error(
       `Could not reproduce exact ${name} at the prior block. Arbitrary reverts are not evidence.`
     );

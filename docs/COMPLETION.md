@@ -1,6 +1,6 @@
 # Audit-driven completion status
 
-Branch: `codex/audit-driven-completion`, from clean merged main `002546f`. PRs #2 and #3 are historical and already merged. See [EVIDENCE.md](EVIDENCE.md) for verified measurements and [CLAIMS.md](CLAIMS.md) for the complete documentation scope.
+Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. Current branch: `codex/live-testnet-evidence`. See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
 
 ## Local implementation
 
@@ -14,7 +14,8 @@ Branch: `codex/audit-driven-completion`, from clean merged main `002546f`. PRs #
 - [x] Selectable line history, preview write guard, replacement/cancellation reconciliation.
 - [x] Wallet-free evidence view that shows unavailable rather than fabricating a proof.
 - [x] Pre-deployment compiler/CI provenance and stricter calldata/revert/state evidence checker.
-- [ ] Fresh-clone release verification, PR CI, and merge.
+- [x] Fresh-clone audit release verification (100 tests, zero skips, seven browser paths), PR CI, and merge.
+- [ ] Follow-up evidence/infrastructure PR CI and merge.
 - [ ] Production browser crash/replacement drill and Railway proxy-boundary confirmation.
 
 ## Fresh accounts and faucet funding
@@ -31,11 +32,11 @@ RPC checks on September 5 confirmed 0.05 Sepolia ETH and 10,000 testnet CTC at t
 
 `node scripts/testnet-accounts.mjs` is idempotent on these encrypted keystores. Never print the output of a Keychain password retrieval, pass a secret on a command line, commit a raw wallet, or place a key in `VITE_*`. The helper's captured pipe is for local signing only. The production relayer must be transferred directly into sealed Railway storage and kept capped.
 
-## Live sequence still required
+## Live sequence (retain completed deployment steps for reproducibility)
 
-1. Merge only after every non-live check passes; prepare provenance from the green merged SHA.
-2. Deploy and verify both source and all three destination contracts; assert bindings/code and fund pool liquidity.
-3. Fund the separate relayer and borrower with capped testnet gas; seal only the relayer on Railway.
+1. Completed: green merged SHA and pre-broadcast artifact provenance.
+2. Completed: all five deployed/verified, bindings/code checked, pool funded with 1,000,000 mUSD.
+3. Completed: borrower funded with 0.01 Sepolia ETH and 5 CTC; relayer funded with 5 CTC and sealed in Railway. [Public records](../evidence/testnet-origination-inputs-2026-09-05.json) contain no signing material.
 4. Configure the existing Singapore worker/PG and verified proxy boundary; validate schema-v2 readiness and current aggregate stats.
 5. Rebuild web with preview disabled, exact live API/addresses and known non-vault refusal hash.
 6. Capture an unused-query tampered proof revert, then the valid native proof and identical-calldata query replay revert.
