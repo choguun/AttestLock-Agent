@@ -45,4 +45,6 @@ Audit date: September 5, 2026. Scope: all 17 Markdown files tracked at baseline 
 
 ## Release reconciliation
 
+The September 5 [live UI audit remediation](LIVE_UI_AUDIT.md) supersedes earlier assumptions that the terminal timeline, mobile proof rendering, global injected-provider selection, source-button eligibility, or frontend metric freshness were complete. The repairs are backed by the named local unit/browser tests; production confirmation is separately recorded in the PR receipt. Protocol and borrower evidence did not change, and the internal score is not increased merely for fixing these faults.
+
 Use the exact implementation SHA, CI run, deployment provenance and evidence timestamp in [EVIDENCE.md](EVIDENCE.md). If a code change invalidates a test or an observed endpoint stops working, downgrade the corresponding row. Five-minute setup, 90-second recording, and seven-day maturity are different clocks. Final eligibility requires public native execution and media, not just a green table.

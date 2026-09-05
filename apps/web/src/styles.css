@@ -25,11 +25,15 @@ body {
   background: radial-gradient(circle at 80% 0%, #183027 0, transparent 32rem), #080b0a;
 }
 button,
-input {
+input,
+select {
   font: inherit;
 }
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+pre:focus-visible,
 a:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;
@@ -47,7 +51,10 @@ main {
   padding: 0 44px;
 }
 .nav {
-  height: 88px;
+  min-height: 88px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+  gap: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -77,6 +84,66 @@ main {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.wallet-picker {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #b7c0ba;
+  max-width: 100%;
+}
+.wallet-picker select {
+  max-width: 220px;
+  width: 100%;
+  padding: 8px;
+  color: #f3f5ee;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.hero-links,
+.resource-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.judge-resources {
+  border: 1px solid var(--line);
+  padding: 24px;
+  margin-bottom: 32px;
+  color: #b7c0ba;
+  line-height: 1.7;
+}
+.judge-resources h2 {
+  color: #f3f5ee;
+}
+.judge-resources li {
+  margin-bottom: 8px;
+}
+.judge-evidence.refusal-demo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.judge-evidence > div,
+.refusal-demo > * {
+  min-width: 0;
+}
+.judge-evidence code,
+.judge-evidence a,
+.judge-evidence time {
+  overflow-wrap: anywhere;
+}
+.judge-evidence pre {
+  max-width: 100%;
+  overflow: auto;
+  max-height: 28rem;
+  padding: 16px;
+  background: #080b0a;
+  border: 1px solid var(--line);
+}
+.judge-evidence li {
+  margin: 16px 0;
 }
 .network-pill,
 .signal,
@@ -568,7 +635,8 @@ footer {
     height: 72px;
   }
   .network-pill {
-    display: none;
+    font-size: 10px;
+    padding: 6px 8px;
   }
   .hero {
     padding: 54px 0 40px;

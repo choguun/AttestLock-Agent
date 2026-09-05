@@ -6,14 +6,20 @@ Five minutes is a setup target, not an end-to-end latency guarantee. Faucet, wal
 
 ## Borrower path
 
-1. Open the hosted app and connect an EIP-1193 wallet.
-2. Switch to Sepolia, claim the one-time `1,000 mUSDC` faucet, and approve the vault.
+1. Open the hosted app and choose your wallet provider, then connect. [EIP-6963 discovery](https://eips.ethereum.org/EIPS/eip-6963) keeps reads, network switching, and signing on the selected provider. Provider names are self-reported, not verified identities; legacy injection is only a fallback when no providers announce themselves.
+2. Obtain free Sepolia ETH and Creditcoin testnet CTC using the in-app setup links. Switch to Sepolia, claim the one-time `1,000 mUSDC` faucet, and approve the vault. Already-claimed faucets and locks without 100 mUSDC balance/allowance remain disabled. A positive native balance is checked, but the wallet still estimates the actual gas cost before signing.
 3. Lock `100 mUSDC` for 15 days. The app immediately asks for an EIP-712 signature authorizing only that transaction hash.
 4. Follow the persisted job through attestation, proof generation, preflight, and Creditcoin execution. Refreshing during the proof recovers jobs over REST/SSE; already-submitted wallet transactions are read from the local journal rather than broadcast again.
 5. Switch to Creditcoin testnet. Confirm the 50 mUSD line, borrower profile, proof transaction, and source transaction.
 6. Borrow with the connected wallet. The worker cannot sign this transaction.
 
 The live path requires preview mode to be explicitly disabled as well as valid deployed addresses and the worker origin. Restoration never opens a signature prompt: choose Resume authorization or Continue repayment. Confirmed replacements/cancellations can be reconciled by hash in the journal; pending transactions continue to block duplicate sends.
+
+## Wallet-free judge route
+
+Select **View verified example** without connecting a wallet. The published historical snapshot contains the native proof, borrower draw, negative receipts, readable mUSD accounting, and UTC maturity. Open the keyboard-scrollable proof payload or download the exact atomic-unit JSON. A junk source receipt may succeed while its job is refused: the labels now distinguish source success from destination acceptance. Refused/failed jobs do not imply earlier stages executed.
+
+The setup panel links the repository, this API example, partial-evidence PDF deck, gas faucets, and worker readiness. Videos remain labelled unpublished until real public URLs exist. Public metrics retain previous values but show stale after a failed refresh or more than two minutes without a fresh observation; unavailable values never become invented zero activity. Connected-wallet balances and selected line/profile are refreshed periodically, including external repayments.
 
 ## API example
 

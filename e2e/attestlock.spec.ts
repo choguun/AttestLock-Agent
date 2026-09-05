@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { AbiCoder, Interface, id } from 'ethers';
+import { AbiCoder, Interface, id, type Eip1193Provider } from 'ethers';
 
 const wallet = '0x5555555555555555555555555555555555555555';
 const vault = '0x2222222222222222222222222222222222222222';
@@ -45,6 +45,7 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
       let debt = previous?.debt ?? initialDebt;
       let borrowed = previous?.borrowed ?? initialDebt;
       let allowance = previous?.allowance ?? 0;
+      let claimed = previous?.claimed ?? false;
       let held = previous?.held ?? hold;
       const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
       const transactions = new Map<
@@ -54,7 +55,16 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
       const save = () =>
         localStorage.setItem(
           'attestlock.mockchain',
-          JSON.stringify({ chainId, nonce, debt, borrowed, allowance, held, transactions: [...transactions] })
+          JSON.stringify({
+            chainId,
+            nonce,
+            debt,
+            borrowed,
+            allowance,
+            claimed,
+            held,
+            transactions: [...transactions],
+          })
         );
       (window as unknown as { __mine(): void }).__mine = () => {
         held = '';
@@ -113,6 +123,7 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
           }
           if (method === 'eth_signTypedData_v4') return `0x${'11'.repeat(65)}`;
           if (method === 'eth_blockNumber') return '0x64';
+          if (method === 'eth_getBalance') return '0x2386f26fc10000';
           if (method === 'eth_getTransactionCount') return hex(nonce);
           if (method === 'eth_gasPrice' || method === 'eth_maxPriorityFeePerGas') return '0x3b9aca00';
           if (method === 'eth_estimateGas') return '0x30d40';
@@ -126,6 +137,7 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
             }
             if (call === calls.balance) return values.balance;
             if (call === calls.allowance) return allowance ? values.balance : values.zero;
+            if (call === calls.claimed) return claimed ? values.one : values.zero;
             return '0x';
           }
           if (method === 'eth_sendTransaction') {
@@ -149,6 +161,8 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
               }
               if (tx.input.startsWith(calls.repay)) debt = 0;
               if (tx.input.startsWith(calls.approve)) allowance = 100_000_000;
+              if (tx.input.startsWith(calls.faucet)) claimed = true;
+              if (tx.input.startsWith(calls.lock)) allowance = 0;
               tx.mined = true;
               save();
             }
@@ -237,10 +251,13 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
         repay: selector('repay(bytes32,uint256)'),
         approve: selector('approve(address,uint256)'),
         allowance: selector('allowance(address,address)'),
+        claimed: selector('faucetClaimed(address)'),
+        faucet: selector('faucet()'),
       },
       values: {
         balance: encoded.balance,
         zero: AbiCoder.defaultAbiCoder().encode(['uint256'], [0n]),
+        one: AbiCoder.defaultAbiCoder().encode(['uint256'], [1n]),
         line: [encoded.line(0n), encoded.line(50_000_000n)],
         profileInitial: encoded.profile(0n, 0n, 0n),
         profileBorrowed: encoded.profile(50_000_000n, 0n, 50_000_000n),
@@ -295,6 +312,9 @@ async function mockApi(page: Page, jobs: ReturnType<typeof job>[] = []) {
       return route.fulfill({
         json: {
           generatedAt: new Date().toISOString(),
+          protocolStatus: 'current',
+          protocolObservedAt: new Date().toISOString(),
+          asOfBlock: 100,
           totalJobs: 3,
           uniqueWallets: 2,
           executedJobs: 1,
@@ -421,6 +441,8 @@ test('mocked judge path remains wallet-signed and exposes evidence', async ({ pa
   await page.getByRole('button', { name: 'Prove it fails' }).click();
   await expect(page.getByText('REFUSED', { exact: true })).toBeVisible();
   await expect(page.getByText(/did not emit the required vault event/)).toBeVisible();
+  await expect(page.getByLabel('Proof job progress').locator('[aria-current="step"]')).toHaveText('refused');
+  await expect(page.getByLabel('Proof job progress').locator('.reached')).toHaveCount(0);
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
@@ -432,7 +454,7 @@ test('published real draw evidence is wallet-free and remains explicitly partial
   const evidence = page.getByLabel('Wallet-free judge evidence');
   await expect(evidence).toContainText('borrower signed a 50 mUSD draw');
   await expect(evidence).toContainText('Post-maturity repayment');
-  await expect(evidence).toContainText('50000000 borrowed − 0 repaid = 50000000 debt');
+  await expect(evidence).toContainText('50.0 mUSD borrowed − 0.0 mUSD repaid = 50.0 mUSD debt');
   await expect(evidence.getByRole('link', { name: /lock: block 11639758/ })).toHaveAttribute(
     'href',
     'https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f'
@@ -464,6 +486,10 @@ for (const stage of ['approve', 'lock', 'borrow', 'repay_approve', 'repay'] as c
     await mockApi(page, credit ? [job(`0x${'01'.repeat(32)}`, 'executed')] : []);
     await page.goto('http://127.0.0.1:4174');
     if (credit) await page.getByRole('button', { name: 'Switch to Creditcoin' }).click();
+    if (stage === 'lock') {
+      await page.getByRole('button', { name: 'Approve 100' }).click();
+      await expect(page.getByRole('button', { name: 'Lock + prove' })).toBeEnabled();
+    }
     const button =
       stage === 'approve'
         ? 'Approve 100'
@@ -477,7 +503,7 @@ for (const stage of ['approve', 'lock', 'borrow', 'repay_approve', 'repay'] as c
       .poll(() =>
         page.evaluate(() => JSON.parse(localStorage.getItem('attestlock.mockchain')!).transactions.length)
       )
-      .toBe(stage === 'repay' ? 2 : 1);
+      .toBe(['repay', 'lock'].includes(stage) ? 2 : 1);
     const sends = await page.evaluate(
       () => JSON.parse(localStorage.getItem('attestlock.mockchain')!).transactions.length
     );
@@ -497,3 +523,94 @@ for (const stage of ['approve', 'lock', 'borrow', 'repay_approve', 'repay'] as c
       await expect(page.getByRole('button', { name: 'Continue repayment' })).toBeEnabled();
   });
 }
+
+for (const width of [360, 390, 768, 1440]) {
+  test(`judge evidence and expanded proof stay within ${width}px viewport`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockApi(page);
+    await page.goto('http://127.0.0.1:4174');
+    await page.getByRole('link', { name: 'View verified example' }).click();
+    const evidence = page.getByLabel('Wallet-free judge evidence');
+    await expect(evidence).toContainText('50.0 mUSD borrowed');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await evidence.getByText('Official seven-argument proof payload').click();
+    await expect(evidence.getByLabel('Scrollable official proof payload')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await evidence.locator('pre').evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  });
+}
+
+test('claimed faucet and unapproved lock stay disabled across refresh', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installWallet(page);
+  await mockApi(page);
+  await page.goto('http://127.0.0.1:4174');
+  await expect(page.getByRole('button', { name: 'Lock + prove' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Claim faucet' }).click();
+  await expect(page.getByRole('button', { name: 'Faucet already claimed' })).toBeDisabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Faucet already claimed' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lock + prove' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Approve 100' }).click();
+  await expect(page.getByRole('button', { name: '100 mUSDC approved' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lock + prove' })).toBeEnabled();
+});
+
+test('selects Rabby independently of competing injected providers and restores without prompting', async ({
+  page,
+}) => {
+  await installWallet(page);
+  await mockApi(page);
+  await page.addInitScript(() => {
+    const rabby = (window as unknown as { ethereum: Eip1193Provider }).ethereum;
+    const other = {
+      request: async () => {
+        localStorage.setItem('wrong-wallet-called', 'true');
+        throw new Error('Wrong wallet');
+      },
+    };
+    Object.defineProperty(window, 'ethereum', { value: other, configurable: true });
+    const announce = () => {
+      for (const detail of [
+        { info: { uuid: 'rabby-test', name: 'Rabby test wallet', rdns: 'io.rabby' }, provider: rabby },
+        {
+          info: { uuid: 'metamask-test', name: 'MetaMask test wallet', rdns: 'io.metamask' },
+          provider: other,
+        },
+      ])
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }));
+    };
+    window.addEventListener('eip6963:requestProvider', announce);
+    announce();
+  });
+  await page.goto('http://127.0.0.1:4174');
+  await page.getByLabel('Wallet provider', { exact: true }).selectOption('rabby-test');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await expect(page.locator('.notice')).toContainText('with Rabby test wallet');
+  await page.getByRole('button', { name: 'Switch to Creditcoin' }).click();
+  await expect(page.getByText('Creditcoin testnet', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.notice')).toContainText('No signature requested');
+  await expect(page.getByLabel('Wallet provider', { exact: true })).toHaveValue('rabby-test');
+  expect(await page.evaluate(() => localStorage.getItem('wrong-wallet-called'))).toBeNull();
+  await page.getByLabel('Wallet provider', { exact: true }).selectOption('metamask-test');
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+  await expect(page.getByText('Current debt').locator('..')).toContainText('— mUSD');
+  await expect(page.getByRole('button', { name: 'Borrow 50' })).toBeDisabled();
+  expect(await page.evaluate(() => localStorage.getItem('wrong-wallet-called'))).toBeNull();
+});
+
+test('API outage preserves activity values but marks the snapshot stale', async ({ page }) => {
+  await page.clock.install();
+  await mockApi(page);
+  await page.goto('http://127.0.0.1:4174');
+  const activity = page.getByLabel('Public protocol activity');
+  await expect(activity).toContainText('Chain metrics: current');
+  await page.route('http://127.0.0.1:4301/api/stats', (route) => route.abort());
+  await page.clock.fastForward(60_001);
+  await expect(activity).toContainText('Chain metrics: stale');
+  await expect(activity).toContainText('Refresh failed');
+  await expect(activity).toContainText('Proof jobs3');
+});

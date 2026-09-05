@@ -45,8 +45,10 @@ describe('wallet-free evidence', () => {
         `https://eth-sepolia.blockscout.com/tx/${nativeEvidence.transactions[name].hash}`
       );
     }
-    expect(screen.getByText(/50000000 borrowed/)).toHaveTextContent(
-      '50000000 borrowed − 0 repaid = 50000000 debt.'
+    expect(screen.getByText(/Borrower accounting:/)).toHaveTextContent(
+      '50.0 mUSD borrowed − 0.0 mUSD repaid = 50.0 mUSD debt.'
     );
+    expect(screen.getByText(/Source transfer succeeded, but the worker refused/)).toBeInTheDocument();
+    expect(screen.getByText(/Line maturity \(UTC\)/)).toHaveTextContent('2026-09-12T11:21:15.000Z');
   });
 });

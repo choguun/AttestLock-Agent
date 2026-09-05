@@ -23,8 +23,10 @@ import {
 } from '@attestlock/shared';
 import { config, isConfigured } from './config';
 import type { TransactionIdentity } from './transaction-journal';
+import { rememberWallet, restorableWallet, walletChoices, type WalletChoice } from './wallet-discovery';
 
 export interface WalletSession {
+  wallet: WalletChoice;
   provider: BrowserProvider;
   signer: JsonRpcSigner;
   address: string;
@@ -42,30 +44,31 @@ type ObservableProvider = Eip1193Provider & {
   removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
-function injected(): Eip1193Provider {
-  if (!window.ethereum) throw new Error('Install an EIP-1193 wallet such as MetaMask to continue.');
-  return window.ethereum;
-}
-
-export async function connectWallet(): Promise<WalletSession> {
-  const provider = new BrowserProvider(injected());
+export async function connectWallet(choice?: WalletChoice): Promise<WalletSession> {
+  const choices = walletChoices();
+  const wallet = choice ?? (choices.length === 1 ? choices[0] : undefined);
+  if (!wallet) throw Object.assign(new Error('Choose a wallet provider.'), { code: 'WALLET_SELECTION' });
+  const provider = new BrowserProvider(wallet.provider);
   await provider.send('eth_requestAccounts', []);
   const signer = await provider.getSigner();
   const network = await provider.getNetwork();
-  return { provider, signer, address: await signer.getAddress(), chainId: Number(network.chainId) };
+  rememberWallet(wallet);
+  return { wallet, provider, signer, address: await signer.getAddress(), chainId: Number(network.chainId) };
 }
 
-export async function restoreWallet(): Promise<WalletSession | null> {
-  const provider = new BrowserProvider(injected());
+export async function restoreWallet(choice?: WalletChoice): Promise<WalletSession | null> {
+  const wallet = choice ?? (await restorableWallet());
+  if (!wallet) return null;
+  const provider = new BrowserProvider(wallet.provider);
   const accounts = (await provider.send('eth_accounts', [])) as string[];
   if (accounts.length === 0) return null;
   const signer = await provider.getSigner(accounts[0]);
   const network = await provider.getNetwork();
-  return { provider, signer, address: await signer.getAddress(), chainId: Number(network.chainId) };
+  return { wallet, provider, signer, address: await signer.getAddress(), chainId: Number(network.chainId) };
 }
 
-export async function switchChain(chainId: number): Promise<WalletSession> {
-  const ethereum = injected();
+export async function switchChain(chainId: number, session: WalletSession): Promise<WalletSession> {
+  const ethereum = session.wallet.provider;
   const hexChainId = `0x${chainId.toString(16)}`;
   try {
     await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChainId }] });
@@ -89,7 +92,9 @@ export async function switchChain(chainId: number): Promise<WalletSession> {
     });
     await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChainId }] });
   }
-  return connectWallet();
+  const restored = await restoreWallet(session.wallet);
+  if (!restored) throw new Error('Wallet disconnected.');
+  return restored;
 }
 
 async function waitForSuccess(tx: {
@@ -230,14 +235,16 @@ export async function readBalances(
   return {};
 }
 
-export function watchWallet(onChange: () => void): () => void {
-  const provider = injected() as ObservableProvider;
+export function watchWallet(onChange: () => void, session: WalletSession): () => void {
+  const provider = session.wallet.provider as ObservableProvider;
   const listener = () => onChange();
   provider.on?.('accountsChanged', listener);
   provider.on?.('chainChanged', listener);
+  provider.on?.('disconnect', listener);
   return () => {
     provider.removeListener?.('accountsChanged', listener);
     provider.removeListener?.('chainChanged', listener);
+    provider.removeListener?.('disconnect', listener);
   };
 }
 
@@ -247,6 +254,8 @@ export function formatTimestamp(timestamp: number): string {
 
 export function walletErrorMessage(error: unknown): string {
   const candidate = error as { code?: number | string; shortMessage?: string; message?: string };
+  if (candidate?.code === 'WALLET_SELECTION')
+    return 'Choose your wallet provider, then connect. If none appears, unlock your testnet wallet extension.';
   if (candidate?.code === 4001 || candidate?.code === 'ACTION_REJECTED') {
     return 'Wallet request was rejected.';
   }

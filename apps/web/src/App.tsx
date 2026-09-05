@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Job, PublicStats } from '@attestlock/shared';
+import type { Job } from '@attestlock/shared';
 import { formatUnits } from 'ethers';
 import { api } from './api';
 import { config, isConfigured } from './config';
@@ -39,6 +39,15 @@ import {
 } from './transaction-journal';
 import { mergeJobs } from './job-recovery';
 import { JudgeEvidence } from './JudgeEvidence';
+import { observeWallets, walletChoices, type WalletChoice } from './wallet-discovery';
+import {
+  boundedWalletRead,
+  readSourceReadiness,
+  sourceActions,
+  type SourceReadiness,
+} from './source-readiness';
+import { usePublicStats } from './use-public-stats';
+import { JudgeResources } from './JudgeResources';
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -128,7 +137,11 @@ export default function App() {
   const [creditTx, setCreditTx] = useState<string | null>(null);
   const [sourceTx, setSourceTx] = useState<{ label: string; hash: string } | null>(null);
   const [balances, setBalances] = useState<Partial<{ collateral: string; credit: string }>>({});
-  const [stats, setStats] = useState<PublicStats | null>(null);
+  const { stats, status: metricsStatus, refreshFailed: statsRefreshFailed } = usePublicStats(isConfigured);
+  const [walletOptions, setWalletOptions] = useState<WalletChoice[]>([]);
+  const [walletOption, setWalletOption] = useState('');
+  const [sourceReady, setSourceReady] = useState<SourceReadiness | null>(null);
+  const sourceAllowed = sourceActions(sourceReady);
   const recoveredEntries = useRef(new Set<string>());
   const sessionRef = useRef<WalletSession | null>(null);
   sessionRef.current = session;
@@ -158,6 +171,8 @@ export default function App() {
       return;
     setJobs((current) => mergeJobs(current, next, address));
   }, []);
+
+  useEffect(() => observeWallets(() => setWalletOptions(walletChoices())), []);
 
   useEffect(() => {
     if (!isConfigured) return;
@@ -203,35 +218,11 @@ export default function App() {
   }, [refreshJobs, session]);
 
   useEffect(() => {
-    if (!isConfigured) return;
-    const refresh = () =>
-      void api
-        .stats()
-        .then(setStats)
-        .catch(() => undefined);
-    refresh();
-    const timer = window.setInterval(refresh, 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!window.ethereum) return;
+    if (!session) return;
     return watchWallet(() => {
-      walletRevision.current += 1;
-      sessionRef.current = null;
-      setSession(null);
-      setJobs([]);
-      setJournal([]);
-      setLine(null);
-      setProfile(null);
-      setBalances({});
-      setCreditTx(null);
-      setSourceTx(null);
-      setSelectedLock('');
-      setBusy(null);
-      recoveredEntries.current.clear();
+      clearWalletState();
       const revision = walletRevision.current;
-      void restoreWallet()
+      void restoreWallet(session.wallet)
         .then((next) => {
           if (revision !== walletRevision.current) return;
           setSession(next);
@@ -244,8 +235,8 @@ export default function App() {
         .catch(() => {
           if (revision === walletRevision.current) setNotice('Wallet disconnected.');
         });
-    });
-  }, []);
+    }, session);
+  }, [session]);
 
   useEffect(() => {
     if (!session || !isConfigured) return;
@@ -255,13 +246,63 @@ export default function App() {
       void recoverTransactions(session);
       tick((value) => value + 1);
     }, 4_000);
-    return () => window.clearInterval(timer);
+    const balancesTimer = window.setInterval(() => void refreshBalancesFor(session), 15_000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearInterval(balancesTimer);
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || !isConfigured || session.chainId !== config.sepoliaChainId) return;
+    let running = false;
+    let disposed = false;
+    const refresh = async () => {
+      if (running) return;
+      running = true;
+      try {
+        const next = await readSourceReadiness(session);
+        if (!disposed && sessionRef.current === session) setSourceReady(next);
+      } catch {
+        if (!disposed && sessionRef.current === session) setSourceReady(null);
+      } finally {
+        running = false;
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 4_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
   }, [session]);
 
   useEffect(() => {
     if (!session || session.chainId !== config.creditcoinChainId || !executed?.evidence.lockId) return;
     void refreshCreditState(session, executed.evidence.lockId);
+    const timer = window.setInterval(
+      () => void refreshCreditState(session, executed.evidence.lockId!),
+      15_000
+    );
+    return () => window.clearInterval(timer);
   }, [executed?.evidence.lockId, session]);
+
+  function clearWalletState() {
+    walletRevision.current += 1;
+    sessionRef.current = null;
+    setSession(null);
+    setJobs([]);
+    setJournal([]);
+    setLine(null);
+    setProfile(null);
+    setBalances({});
+    setSourceReady(null);
+    setCreditTx(null);
+    setSourceTx(null);
+    setSelectedLock('');
+    setBusy(null);
+    recoveredEntries.current.clear();
+  }
 
   const proofFact = useMemo(() => {
     if (!latest) return 'No proof job yet.';
@@ -283,22 +324,36 @@ export default function App() {
     }
   }
 
+  async function changeNetwork(chainId: number) {
+    const current = sessionRef.current;
+    if (!current) return;
+    const revision = walletRevision.current;
+    const next = await switchChain(chainId, current);
+    // An emitted chain/account change is restored by the pinned provider listener.
+    // A later provider selection must never be overwritten by this old request.
+    if (revision !== walletRevision.current || sessionRef.current !== current) return;
+    clearWalletState();
+    setSession(next);
+  }
+
   async function refreshBalancesFor(currentSession: WalletSession) {
     try {
-      const next = await readBalances(currentSession);
+      const next = await boundedWalletRead(readBalances(currentSession));
       if (sessionRef.current !== currentSession) return;
       setBalances((current) => ({ ...current, ...next }));
     } catch {
-      // Balance evidence is helpful but does not control transaction safety.
+      if (sessionRef.current === currentSession) setBalances({});
     }
   }
 
   async function refreshCreditState(currentSession: WalletSession, lockId: string) {
     try {
-      const [nextLine, nextProfile] = await Promise.all([
-        readCreditLine(currentSession.signer, lockId),
-        readBorrowerProfile(currentSession.signer, currentSession.address),
-      ]);
+      const [nextLine, nextProfile] = await boundedWalletRead(
+        Promise.all([
+          readCreditLine(currentSession.signer, lockId),
+          readBorrowerProfile(currentSession.signer, currentSession.address),
+        ])
+      );
       if (
         sessionRef.current !== currentSession ||
         (selectedLockRef.current && selectedLockRef.current !== lockId)
@@ -307,7 +362,11 @@ export default function App() {
       setLine(nextLine);
       setProfile(nextProfile);
     } catch {
-      if (sessionRef.current !== currentSession) return;
+      if (
+        sessionRef.current !== currentSession ||
+        (selectedLockRef.current && selectedLockRef.current !== lockId)
+      )
+        return;
       setLine(null);
       setProfile(null);
     }
@@ -457,14 +516,41 @@ export default function App() {
           <span className="brand-mark">A</span>AttestLock
         </a>
         <div className="nav-actions">
+          <label className="wallet-picker">
+            Wallet provider
+            <select
+              aria-label="Wallet provider"
+              value={walletOption || session?.wallet.id || ''}
+              disabled={busy !== null}
+              onChange={(event) => {
+                clearWalletState();
+                setWalletOption(event.target.value);
+                setNotice('Wallet selected. Connect when ready; no signature requested automatically.');
+              }}
+            >
+              <option value="">Choose wallet</option>
+              {walletOptions.map((wallet) => (
+                <option key={wallet.id} value={wallet.id}>
+                  {wallet.name}
+                </option>
+              ))}
+            </select>
+          </label>
           {session && <span className="network-pill">{chainLabel(session.chainId)}</span>}
           <button
             className="button secondary compact"
+            disabled={busy !== null}
             onClick={() =>
               void act('connect', async () => {
-                const connected = await connectWallet();
+                const revision = walletRevision.current;
+                const connected = await connectWallet(
+                  walletOptions.find((choice) => choice.id === walletOption) ?? session?.wallet
+                );
+                if (revision !== walletRevision.current) return;
                 setSession(connected);
-                setNotice(`Connected ${shortAddress(connected.address)}.`);
+                setNotice(
+                  `Connected ${shortAddress(connected.address)} with ${connected.wallet.name} on ${chainLabel(connected.chainId)}.`
+                );
               })
             }
           >
@@ -489,6 +575,14 @@ export default function App() {
             Lock mock USDC on Sepolia. Attestcoin proves the exact successful escrow event. Creditcoin opens a
             50% line—then only you can borrow.
           </p>
+          <div className="hero-links">
+            <a className="button primary" href="#judge-evidence">
+              View verified example
+            </a>
+            <a className="button secondary" href="#getting-started">
+              Five-minute setup
+            </a>
+          </div>
         </div>
         <div className="proof-card" aria-label="Protocol guarantee">
           <span className="signal">
@@ -500,6 +594,8 @@ export default function App() {
           <small>No oracle signer. No bridge custody. No agent discretion.</small>
         </div>
       </section>
+
+      <JudgeResources />
 
       {!isConfigured && (
         <div className="banner" role="status">
@@ -549,15 +645,24 @@ export default function App() {
             <span>Wallet balance</span>
             <strong>{balances?.collateral ?? '—'} mUSDC</strong>
           </div>
+          <p className="microcopy" role="status">
+            {!session || session.chainId !== config.sepoliaChainId
+              ? 'Connect on Sepolia to check faucet eligibility, balance, approval, and testnet gas.'
+              : !sourceReady
+                ? 'Source prerequisites unavailable or loading. Actions stay disabled until checked.'
+                : sourceReady.gas === 0n
+                  ? 'Sepolia gas is empty. Get free testnet ETH using the setup guide.'
+                  : sourceReady.balance < 100_000_000n
+                    ? 'At least 100 mUSDC is required. Claim the one-time faucet if eligible.'
+                    : sourceReady.allowance < 100_000_000n
+                      ? 'Approve 100 mUSDC before locking.'
+                      : '100 mUSDC approved. Ready to lock. Gas is estimated by your wallet before signing.'}
+          </p>
           <div className="action-grid">
             <button
               className="button secondary"
               disabled={!session || !isConfigured || busy !== null}
-              onClick={() =>
-                void act('Switching network', async () =>
-                  setSession(await switchChain(config.sepoliaChainId))
-                )
-              }
+              onClick={() => void act('Switching network', () => changeNetwork(config.sepoliaChainId))}
             >
               Switch to Sepolia
             </button>
@@ -568,7 +673,8 @@ export default function App() {
                 session.chainId !== config.sepoliaChainId ||
                 !isConfigured ||
                 busy !== null ||
-                pendingWalletTx
+                pendingWalletTx ||
+                !sourceAllowed.faucet
               }
               onClick={() =>
                 void act('Claiming faucet tokens', async () => {
@@ -579,13 +685,14 @@ export default function App() {
                   });
                   if (journal) updateTransaction(journal, 'confirmed');
                   assertCurrent(session!);
+                  setSourceReady(null);
                   setSourceTx({ label: 'Faucet', hash });
                   await refreshBalancesFor(session!);
                   setNotice('Faucet transaction confirmed.');
                 })
               }
             >
-              Claim faucet
+              {sourceReady?.claimed ? 'Faucet already claimed' : 'Claim faucet'}
             </button>
             <button
               className="button secondary"
@@ -594,7 +701,8 @@ export default function App() {
                 session.chainId !== config.sepoliaChainId ||
                 !isConfigured ||
                 busy !== null ||
-                pendingWalletTx
+                pendingWalletTx ||
+                !sourceAllowed.approve
               }
               onClick={() =>
                 void act('Approving vault', async () => {
@@ -605,12 +713,13 @@ export default function App() {
                   });
                   if (journal) updateTransaction(journal, 'confirmed');
                   assertCurrent(session!);
+                  setSourceReady(null);
                   setSourceTx({ label: 'Approval', hash });
                   setNotice('Vault approval confirmed.');
                 })
               }
             >
-              Approve 100
+              {sourceReady && sourceReady.allowance >= 100_000_000n ? '100 mUSDC approved' : 'Approve 100'}
             </button>
             <button
               className="button primary"
@@ -619,7 +728,8 @@ export default function App() {
                 session.chainId !== config.sepoliaChainId ||
                 !isConfigured ||
                 busy !== null ||
-                pendingWalletTx
+                pendingWalletTx ||
+                !sourceAllowed.lock
               }
               onClick={() =>
                 void act('Locking collateral', async () => {
@@ -627,6 +737,7 @@ export default function App() {
                   const locked = await lockCollateral(session!.signer, (submitted, identity) => {
                     journal = track(session!, 'lock', submitted, undefined, identity);
                     setSourceTx({ label: 'Lock', hash: submitted });
+                    setSourceReady(null);
                   });
                   if (journal) updateTransaction(journal, 'confirmed', locked.lockId);
                   recordTransaction(
@@ -800,11 +911,7 @@ export default function App() {
           <button
             className="button secondary full"
             disabled={!session || busy !== null}
-            onClick={() =>
-              void act('Switching network', async () =>
-                setSession(await switchChain(config.creditcoinChainId))
-              )
-            }
+            onClick={() => void act('Switching network', () => changeNetwork(config.creditcoinChainId))}
           >
             Switch to Creditcoin
           </button>
@@ -963,8 +1070,10 @@ export default function App() {
         </div>
         <small>
           Wallet counts are aggregate protocol activity, not verified unique people. Chain metrics:{' '}
-          {stats?.protocolStatus ?? 'unavailable'}
+          {metricsStatus}
           {stats?.asOfBlock != null ? ` at block ${stats.asOfBlock}` : ''}.
+          {stats?.protocolObservedAt && ` Observed ${stats.protocolObservedAt}.`}
+          {statsRefreshFailed && ' Refresh failed; showing the last available snapshot, not fresh activity.'}
         </small>
       </section>
 

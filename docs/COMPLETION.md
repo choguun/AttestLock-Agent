@@ -1,6 +1,6 @@
 # Audit-driven completion status
 
-Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); Solidity deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. PRs #5 and [#6](https://github.com/choguun/AttestLock-Agent/pull/6) delivered native proof evidence and healthy hosted release `b7e71f2`. Current follow-up: `codex/borrow-evidence-release`. See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
+Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/pull/4); Solidity deployment commit `6aec094ed321675199eaa2ff818e4a719c67a37b` has green CI. PRs #5–#8 delivered native proof, borrower draw, and public explorer links; the September 5 live UI audit checked hosted release `c763e7f`. The subsequent `codex/live-audit-fixes` changes and their remaining gates are recorded in [LIVE_UI_AUDIT.md](LIVE_UI_AUDIT.md). See [EVIDENCE.md](EVIDENCE.md), [LIVE_TESTNET.md](LIVE_TESTNET.md), and [CLAIMS.md](CLAIMS.md).
 
 ## Local implementation
 
@@ -20,7 +20,8 @@ Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/
 - [x] Borrow-evidence follow-up local checks: 137 tests, zero skips, eight browser paths; exact draw checker, 22 rejection mutations, SSE slot release and proxy-boundary regressions.
 - [x] Borrow-evidence PR #7 implementation commit `71b148e` CI 33969297415 and fresh public clone: 137 tests, zero skips, eight browser paths.
 - [x] Borrow-evidence PR #7 merged release `4296da5`, main CI 33969720763 and manual live smoke 33969995957; both hosted services serve that SHA and retain the two jobs without a new relayer nonce.
-- [ ] Public explorer-link follow-up: a clean unauthenticated check found Etherscan HTTP 403; switch shared Sepolia links to Blockscout and rerun all public-link checks. The remaining maturity/browser/media gates are unchanged.
+- [x] Public explorer-link follow-up merged through PR #8 as `c763e7f`; shared Sepolia links use Blockscout. Main CI 33970380838 and manual smoke 33970671643 passed. The remaining maturity/browser/media gates are unchanged.
+- [x] Local live-UI audit fixes: truthful terminal timeline, bounded mobile proof, provider selection, source prerequisites, judge navigation, stale metrics; 145 tests with zero skips and 15 browser cases. Production release evidence is separate in LIVE_UI_AUDIT.
 - [x] Real hosted borrower draw; exact historical calldata/event/token/profile checker and sanitized fixture.
 - [ ] Production browser crash/replacement drill and Railway proxy-boundary confirmation.
 
