@@ -1,4 +1,13 @@
-import { Contract, JsonRpcProvider, ZeroAddress, formatUnits, getAddress, isHexString } from 'ethers';
+import {
+  Contract,
+  JsonRpcProvider,
+  ZeroAddress,
+  formatUnits,
+  getAddress,
+  isHexString,
+  Interface,
+} from 'ethers';
+import { readFile } from 'node:fs/promises';
 
 const addressKeys = [
   'SOURCE_TOKEN_ADDRESS',
@@ -23,6 +32,9 @@ const required = [
   'EXPECTED_BORROWER',
   'RELAYER_ADDRESS',
   'REPAY_PAYER',
+  'WORKER_URL',
+  'JUNK_JOB_ID',
+  'PROOF_FIXTURE_FILE',
 ];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing ${key}.`);
@@ -128,6 +140,12 @@ for (const [key, value] of Object.entries(expected)) {
 
 const lockId = process.env.LOCK_ID;
 const queryId = process.env.QUERY_ID;
+const fixture = JSON.parse(await readFile(process.env.PROOF_FIXTURE_FILE, 'utf8'));
+const proofInterface = new Interface([
+  'function verifyLockAndOpenLine(uint64,uint64,bytes,bytes32,(bytes32 hash,bool isLeft)[],bytes32,bytes32[]) returns (bool)',
+  'error ProofVerificationFailed()',
+  'error QueryAlreadyProcessed()',
+]);
 const line = await pool.lines(lockId);
 if (line[0] === ZeroAddress) throw new Error('LOCK_ID has no credit line.');
 if (getAddress(line[0]) !== expectedBorrower) throw new Error('Credit line borrower does not match signer.');
@@ -221,6 +239,75 @@ if (
 ) {
   throw new Error('JUNK_TX_HASH unexpectedly targets LockVault.');
 }
+const refusalResponse = await fetch(new URL(`/api/jobs/${process.env.JUNK_JOB_ID}`, process.env.WORKER_URL), {
+  signal: AbortSignal.timeout(10_000),
+});
+if (!refusalResponse.ok) throw new Error('Junk refusal job is not publicly retrievable.');
+const refusal = await refusalResponse.json();
+if (
+  refusal.txHash?.toLowerCase() !== process.env.JUNK_TX_HASH.toLowerCase() ||
+  refusal.status !== 'refused' ||
+  refusal.errorCode !== 'WRONG_SOURCE_CONTRACT' ||
+  refusal.evidence?.creditcoinSubmissionTxHash
+) {
+  throw new Error('Junk evidence must be an actual source-contract refusal without a funded submission.');
+}
+
+// Require the committed proof tuple to encode exactly the successful call.
+if (
+  !Array.isArray(fixture.proofArguments) ||
+  fixture.proofArguments.length !== 7 ||
+  fixture.queryId?.toLowerCase() !== queryId.toLowerCase()
+)
+  throw new Error('Real proof fixture tuple/query ID is missing.');
+const validCalldata = proofInterface.encodeFunctionData('verifyLockAndOpenLine', fixture.proofArguments);
+if (validCalldata.toLowerCase() !== proofExecution.transaction.data.toLowerCase())
+  throw new Error('Fixture is not the successful proof transaction calldata.');
+if (replayExecution.transaction.data.toLowerCase() !== validCalldata.toLowerCase())
+  throw new Error('Query replay must repeat identical successful calldata.');
+const originalArgs = proofInterface.decodeFunctionData('verifyLockAndOpenLine', validCalldata);
+const tamperedArgs = proofInterface.decodeFunctionData(
+  'verifyLockAndOpenLine',
+  tamperedExecution.transaction.data
+);
+// Canonical negative demo: mutate only encoded transaction bytes; query path stays identical.
+const expectedTamper = [...originalArgs];
+expectedTamper[2] = tamperedArgs[2];
+if (
+  originalArgs[2] === tamperedArgs[2] ||
+  proofInterface.encodeFunctionData('verifyLockAndOpenLine', expectedTamper).toLowerCase() !==
+    tamperedExecution.transaction.data.toLowerCase()
+)
+  throw new Error('Tampered evidence must mutate only txBytes of the same unused query.');
+if (
+  tamperedExecution.receipt.blockNumber >= proofExecution.receipt.blockNumber ||
+  replayExecution.receipt.blockNumber <= proofExecution.receipt.blockNumber
+)
+  throw new Error('Record tamper, valid proof, and replay in separate, ordered blocks.');
+if (await asc.processedQueries(queryId, { blockTag: tamperedExecution.receipt.blockNumber - 1 }))
+  throw new Error('Tampered query was already used; replay protection would mask verification.');
+
+async function requireRevertReason(execution, name) {
+  let data;
+  try {
+    await destination.call({
+      to: execution.transaction.to,
+      from: execution.transaction.from,
+      data: execution.transaction.data,
+      value: execution.transaction.value,
+      gasLimit: execution.transaction.gasLimit,
+      blockTag: execution.receipt.blockNumber - 1,
+    });
+  } catch (error) {
+    data = error.data ?? error.info?.error?.data;
+  }
+  if (typeof data !== 'string' || data !== proofInterface.encodeErrorResult(name))
+    throw new Error(
+      `Could not reproduce exact ${name} at the prior block. Arbitrary reverts are not evidence.`
+    );
+}
+await requireRevertReason(tamperedExecution, 'ProofVerificationFailed');
+await requireRevertReason(replayExecution, 'QueryAlreadyProcessed');
 
 function oneEvent(contract, receipt, name, expectedLockId) {
   const events = receipt.logs.flatMap((log) => {
@@ -247,11 +334,28 @@ if (String(proofEvent.args.queryId).toLowerCase() !== queryId.toLowerCase()) {
   throw new Error('Proof event query ID mismatch.');
 }
 if (BigInt(proofEvent.args.creditLimit) !== BigInt(line[1])) throw new Error('Proof event limit mismatch.');
+if (
+  BigInt(lockEvent.args.amount) !== 100_000_000n ||
+  BigInt(line[4]) !== BigInt(lockEvent.args.amount) ||
+  getAddress(lockEvent.args.token) !== addresses.SOURCE_TOKEN_ADDRESS ||
+  BigInt(lockEvent.args.unlockAt) !== BigInt(line[5]) ||
+  getAddress(proofEvent.args.borrower) !== expectedBorrower ||
+  BigInt(proofEvent.args.collateralAmount) !== BigInt(line[4]) ||
+  BigInt(proofEvent.args.maturity) !== BigInt(line[3]) ||
+  BigInt(proofEvent.args.collateralUnlockAt) !== BigInt(line[5])
+)
+  throw new Error('Source lock, ASC event, and line facts do not match exactly.');
 const borrowEvent = oneEvent(pool, borrowExecution.receipt, 'Borrowed', lockId);
 if (BigInt(borrowEvent.args.amount) !== BigInt(line[1])) {
   throw new Error('Borrower did not draw the exact demonstrated 50% line.');
 }
-oneEvent(pool, repayExecution.receipt, 'Repaid', lockId);
+const repayEvent = oneEvent(pool, repayExecution.receipt, 'Repaid', lockId);
+if (
+  getAddress(repayEvent.args.payer) !== expectedRepayPayer ||
+  BigInt(repayEvent.args.amount) !== 50_000_000n ||
+  BigInt(repayEvent.args.debt) !== 0n
+)
+  throw new Error('Repayment must close the exact 50 mUSD demonstrated debt.');
 
 const [proofBlock, borrowBlock, repayBlock] = await Promise.all([
   destination.getBlock(proofExecution.receipt.blockNumber),
@@ -275,17 +379,22 @@ if (poolLiquidityAtomic < BigInt(process.env.MIN_POOL_LIQUIDITY_ATOMIC ?? '1')) 
 }
 
 async function stateAt(blockTag) {
-  const [historicalLine, historicalProfile, usedLock, usedQuery] = await Promise.all([
-    pool.lines(lockId, { blockTag }),
-    pool.borrowerProfiles(expectedBorrower, { blockTag }),
-    asc.usedLocks(lockId, { blockTag }),
-    asc.processedQueries(queryId, { blockTag }),
-  ]);
+  const [historicalLine, historicalProfile, usedLock, usedQuery, poolBalance, borrowerBalance] =
+    await Promise.all([
+      pool.lines(lockId, { blockTag }),
+      pool.borrowerProfiles(expectedBorrower, { blockTag }),
+      asc.usedLocks(lockId, { blockTag }),
+      asc.processedQueries(queryId, { blockTag }),
+      asset.balanceOf(addresses.CREDIT_POOL_ADDRESS, { blockTag }),
+      asset.balanceOf(expectedBorrower, { blockTag }),
+    ]);
   return JSON.stringify({
     line: [...historicalLine].map(String),
     profile: [...historicalProfile].map(String),
     usedLock,
     usedQuery,
+    poolBalance: String(poolBalance),
+    borrowerBalance: String(borrowerBalance),
   });
 }
 for (const [label, receipt] of [
@@ -298,6 +407,14 @@ for (const [label, receipt] of [
 }
 
 const evidence = {
+  schemaVersion: 1,
+  proofArguments: fixture.proofArguments,
+  junkRefusal: {
+    id: refusal.id,
+    txHash: refusal.txHash,
+    status: refusal.status,
+    errorCode: refusal.errorCode,
+  },
   checkedAt: new Date().toISOString(),
   chains: { source: Number(sourceNetwork.chainId), destination: Number(destinationNetwork.chainId) },
   addresses,

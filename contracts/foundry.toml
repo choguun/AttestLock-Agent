@@ -17,6 +17,11 @@ remappings = [
   "@gluwa/asc-contracts/=../node_modules/@gluwa/asc-contracts/"
 ]
 
+[profile.default.invariant]
+runs = 256
+depth = 128
+fail_on_revert = true
+
 [fmt]
 line_length = 110
 tab_width = 4

@@ -1,13 +1,12 @@
-import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { JsonRpcProvider, getAddress, keccak256 } from 'ethers';
+import { Contract, Interface, FetchRequest, JsonRpcProvider, getAddress, keccak256 } from 'ethers';
 
 const networks = {
   sepolia: {
     chainId: 11_155_111,
     label: 'Sepolia',
     contracts: ['MockUSDC', 'LockVault'],
-    explorer: 'https://sepolia.etherscan.io',
+    explorer: 'https://eth-sepolia.blockscout.com',
     dependencies: { openzeppelin: '5.4.0' },
   },
   'creditcoin-testnet': {
@@ -23,9 +22,20 @@ const networkKey = process.env.DEPLOYMENT_NETWORK;
 const broadcastFile = process.env.BROADCAST_FILE;
 const outputFile = process.env.OUTPUT_FILE;
 const rpcUrl = process.env.DEPLOYMENT_RPC_URL;
-if (!networkKey || !broadcastFile || !outputFile || !rpcUrl) {
-  throw new Error('Set DEPLOYMENT_NETWORK, BROADCAST_FILE, OUTPUT_FILE, and DEPLOYMENT_RPC_URL.');
+const provenanceFile = process.env.PROVENANCE_FILE;
+if (!networkKey || !broadcastFile || !outputFile || !rpcUrl || !provenanceFile) {
+  throw new Error(
+    'Set DEPLOYMENT_NETWORK, BROADCAST_FILE, OUTPUT_FILE, DEPLOYMENT_RPC_URL, and PROVENANCE_FILE.'
+  );
 }
+const provenance = JSON.parse(await readFile(provenanceFile, 'utf8'));
+if (
+  provenance.schemaVersion !== 1 ||
+  !/^[a-f0-9]{40}$/.test(provenance.commitSha) ||
+  !provenance.ciRun ||
+  !provenance.artifacts
+)
+  throw new Error('Invalid pre-deployment provenance.');
 const network = networks[networkKey];
 if (!network) throw new Error(`Unsupported deployment network: ${networkKey}`);
 
@@ -36,7 +46,9 @@ const creates = broadcast.transactions.filter(
 const receiptsByHash = new Map(
   broadcast.receipts.map((receipt) => [String(receipt.transactionHash).toLowerCase(), receipt])
 );
-const provider = new JsonRpcProvider(rpcUrl);
+const request = new FetchRequest(rpcUrl);
+request.timeout = 15_000;
+const provider = new JsonRpcProvider(request);
 const chain = await provider.getNetwork();
 if (Number(chain.chainId) !== network.chainId) {
   throw new Error(`RPC chain ${chain.chainId} does not match expected ${network.chainId}.`);
@@ -51,24 +63,13 @@ const contractRecords = {};
 const blocks = [];
 async function verificationStatus(address) {
   let endpoint;
-  if (networkKey === 'creditcoin-testnet') {
+  {
     endpoint = new URL('/api', network.explorer);
     endpoint.search = new URLSearchParams({
       module: 'contract',
       action: 'getsourcecode',
       address,
     }).toString();
-  } else if (process.env.ETHERSCAN_API_KEY) {
-    endpoint = new URL('https://api.etherscan.io/v2/api');
-    endpoint.search = new URLSearchParams({
-      chainid: String(network.chainId),
-      module: 'contract',
-      action: 'getsourcecode',
-      address,
-      apikey: process.env.ETHERSCAN_API_KEY,
-    }).toString();
-  } else {
-    return 'not-checked';
   }
   try {
     const response = await fetch(endpoint, { signal: AbortSignal.timeout(15_000) });
@@ -89,6 +90,32 @@ for (const name of network.contracts) {
   const block = Number(receipt.blockNumber);
   const code = await provider.getCode(address, block);
   if (code === '0x') throw new Error(`${name} has no bytecode at deployment block ${block}.`);
+  const artifact = provenance.artifacts[name];
+  const liveTransaction = await provider.getTransaction(hash);
+  const liveReceipt = await provider.getTransactionReceipt(hash);
+  if (
+    !artifact ||
+    !liveTransaction ||
+    liveReceipt?.status !== 1 ||
+    liveReceipt.blockNumber !== block ||
+    liveReceipt.contractAddress?.toLowerCase() !== address.toLowerCase() ||
+    !liveTransaction.data.toLowerCase().startsWith(artifact.creationBytecode.toLowerCase())
+  )
+    throw new Error(`${name} creation does not match the certified artifact and broadcast.`);
+  const maskImmutables = (bytecode) => {
+    const bytes = Buffer.from(bytecode.slice(2), 'hex');
+    for (const references of Object.values(artifact.immutableReferences))
+      for (const { start, length } of references) bytes.fill(0, start, start + length);
+    return bytes.toString('hex');
+  };
+  if (maskImmutables(code) !== maskImmutables(artifact.runtimeBytecode))
+    throw new Error(`${name} runtime does not match the certified artifact outside constructor immutables.`);
+  const encodedArguments = new Interface(artifact.abi).encodeDeploy(creation.arguments ?? []);
+  if (
+    liveTransaction.data.toLowerCase() !==
+    (artifact.creationBytecode + encodedArguments.slice(2)).toLowerCase()
+  )
+    throw new Error(`${name} constructor arguments do not match the actual creation calldata.`);
   contracts[name] = address;
   transactions[name] = hash;
   explorerUrls[name] = `${network.explorer}/address/${address}`;
@@ -97,6 +124,11 @@ for (const name of network.contracts) {
   constructorArguments[name] = creation.arguments ?? [];
   const deployedBlock = await provider.getBlock(block);
   if (!deployedBlock) throw new Error(`${name} deployment block ${block} is unavailable.`);
+  if (
+    !Number.isFinite(Date.parse(provenance.preparedAt)) ||
+    Date.parse(provenance.preparedAt) > deployedBlock.timestamp * 1000
+  )
+    throw new Error(`${name} provenance was not captured before deployment.`);
   const status = await verificationStatus(address);
   if (process.env.REQUIRE_VERIFIED === 'true' && status !== 'verified') {
     throw new Error(`${name} is not verified on ${network.label}; observed status: ${status}.`);
@@ -108,6 +140,9 @@ for (const name of network.contracts) {
     deploymentBlock: block,
     deployedAt: new Date(deployedBlock.timestamp * 1000).toISOString(),
     runtimeCodeHash: codeHashes[name],
+    artifactCreationCodeHash: artifact.creationCodeHash,
+    compiler: artifact.compiler,
+    compilerSettings: artifact.settings,
     verificationStatus: status,
     explorerAddressUrl: explorerUrls[name],
     explorerTransactionUrl: explorerUrls[`${name}Transaction`],
@@ -115,7 +150,7 @@ for (const name of network.contracts) {
   blocks.push(block);
 }
 
-const commitSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const commitSha = provenance.commitSha;
 const deploymentBlock = Math.min(...blocks);
 const block = await provider.getBlock(deploymentBlock);
 if (!block) throw new Error(`Deployment block ${deploymentBlock} is unavailable.`);
@@ -125,8 +160,13 @@ const manifest = {
   deployedAt: new Date(block.timestamp * 1000).toISOString(),
   generatedAt: new Date().toISOString(),
   commitSha,
-  solcVersion: '0.8.28',
-  dependencies: network.dependencies,
+  compilerProvenance: {
+    preparedAt: provenance.preparedAt,
+    ciRun: provenance.ciRun,
+    foundryVersion: provenance.foundryVersion,
+  },
+  solcVersion: provenance.artifacts[network.contracts[0]].compiler.version,
+  dependencies: provenance.dependencies,
   deploymentBlock,
   deployer: getAddress(creates[0].transaction.from),
   contracts,
@@ -146,6 +186,28 @@ if (networkKey === 'creditcoin-testnet') {
     LockVault: getAddress(process.env.SOURCE_VAULT_ADDRESS),
     MockUSDC: getAddress(process.env.SOURCE_TOKEN_ADDRESS),
   };
+  const asc = new Contract(contracts.AttestLockASC, provenance.artifacts.AttestLockASC.abi, provider);
+  const pool = new Contract(contracts.CreditPool, provenance.artifacts.CreditPool.abi, provider);
+  const asset = new Contract(contracts.MockUSD, provenance.artifacts.MockUSD.abi, provider);
+  const checks = [
+    [await asc.pool(), contracts.CreditPool],
+    [await asc.sourceVault(), manifest.sourceBindings.LockVault],
+    [await asc.sourceToken(), manifest.sourceBindings.MockUSDC],
+    [await asc.verifier(), '0x0000000000000000000000000000000000000FD2'],
+    [await pool.asc(), contracts.AttestLockASC],
+    [await pool.asset(), contracts.MockUSD],
+    [await pool.owner(), manifest.deployer],
+    [await asset.owner(), manifest.deployer],
+  ];
+  if (checks.some(([actual, expected]) => getAddress(actual) !== getAddress(expected)))
+    throw new Error('Destination constructor or one-time ASC bindings do not match.');
+  const liquidity = await asset.balanceOf(contracts.CreditPool);
+  if (liquidity < 50_000_000n) throw new Error('Pool liquidity is below one demo draw.');
+  manifest.poolLiquidityAtomic = liquidity.toString();
+} else {
+  const vault = new Contract(contracts.LockVault, provenance.artifacts.LockVault.abi, provider);
+  if (getAddress(await vault.collateralToken()) !== contracts.MockUSDC)
+    throw new Error('Vault token binding does not match.');
 }
 
 await writeFile(outputFile, `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx' });

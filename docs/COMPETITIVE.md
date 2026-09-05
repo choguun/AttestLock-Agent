@@ -1,6 +1,6 @@
 # Competitive positioning
 
-Research snapshot: September 4, 2026. This is a primary-source comparison of public BUIDL CTC repositories, not a claim about judging rank, completeness, adoption, or production safety.
+Research snapshot: September 5, 2026. These are attributed claims from project-authored repositories, not independently verified deployments, security reviews, adoption, or judging results. The closest overlaps are Unbridged and Spark; proof-gated lending itself is not unique to AttestLock.
 
 | Project                                                | Publicly stated proof-to-action flow                                                                                                 | Primary distinction from AttestLock                                                                                              |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -12,9 +12,14 @@ Research snapshot: September 4, 2026. This is a primary-source comparison of pub
 
 ## Defensible wedge
 
+| Closest peer                                                                                             | Author-stated overlap                                                                                                                                 | Narrow AttestLock distinction                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Unbridged](https://github.com/PhiBao/unbridged) · [DoraHacks listing](https://dorahacks.io/buidl/48132) | Sepolia ETH escrow, native `0x0FD2` verification, Creditcoin credit and explicit borrowing/repayment; the author reports a live path                  | Six-decimal mock USDC, fixed 50% LTV and seven-day maturity, transparent receipt policy and operational recovery; not a claim of stronger security or earlier delivery |
+| [Spark](https://github.com/thesithunyein/spark)                                                          | Sepolia deposit/balance proofs, native credit origination, user withdrawal, payment-history score and LTV bonuses; the author reports live deployment | No solvency score, reputation bonus, or adjustable underwriting: one immutable escrow fact and fixed-term line with an auditable activity profile                      |
+
 AttestLock's narrow product sentence is: **escrow → native proof → bounded line → user-signed draw**.
 
-That sequence combines four properties in one judge-visible path:
+Our intended contribution is an **auditable, fixed-term credit-origination reference for lending and risk teams**. The sequence combines four properties; competitors may share them:
 
 - current collateral rather than only reputation;
 - no bridge custody of the collateral asset;

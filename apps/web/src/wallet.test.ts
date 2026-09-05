@@ -6,7 +6,11 @@ describe('wallet presentation helpers', () => {
     expect(walletErrorMessage({ code: 4001, message: 'raw provider message' })).toBe(
       'Wallet request was rejected.'
     );
-    expect(walletErrorMessage({ shortMessage: 'insufficient funds' })).toBe('insufficient funds');
+    expect(walletErrorMessage({ code: 'INSUFFICIENT_FUNDS' })).toContain('Not enough testnet gas');
+    expect(walletErrorMessage({ code: 'TRANSACTION_REPLACED' })).toContain('replacement');
+    expect(walletErrorMessage({ shortMessage: 'https://secret:password@rpc.test/key' })).not.toContain(
+      'password'
+    );
   });
 
   it('labels supported and unsupported networks', () => {
@@ -32,6 +36,13 @@ describe('wallet presentation helpers', () => {
     expect(canBorrowLine(address, 1, `0x${'11'.repeat(32)}`, line)).toBe(false);
     expect(canBorrowLine(address, 102_031, undefined, line)).toBe(false);
     expect(canBorrowLine(address, 102_031, `0x${'11'.repeat(32)}`, { ...line, debt: '50.0' })).toBe(false);
+    expect(canBorrowLine(address, 102_031, `0x${'11'.repeat(32)}`, { ...line, debt: '1.0' }, '50')).toBe(
+      false
+    );
+    expect(canBorrowLine(address, 102_031, `0x${'11'.repeat(32)}`, { ...line, debt: '1.0' }, '49')).toBe(
+      true
+    );
+    expect(canBorrowLine(address, 102_031, `0x${'11'.repeat(32)}`, line, 'invalid')).toBe(false);
     expect(canBorrowLine(address, 102_031, `0x${'11'.repeat(32)}`, { ...line, maturity: 1 })).toBe(false);
   });
 });

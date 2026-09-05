@@ -24,7 +24,7 @@ sed -i.bak 's/assembly {/assembly ("memory-safe") {/' \
 rm "${coverage_root}/lib/asc-contracts/contracts/common/EvmV1Decoder.sol.bak"
 
 coverage_summary="${coverage_root}/summary.txt"
-NO_COLOR=1 forge coverage \
+NO_COLOR=1 FOUNDRY_INVARIANT_RUNS=256 FOUNDRY_INVARIANT_DEPTH=128 FOUNDRY_INVARIANT_FAIL_ON_REVERT=true forge coverage \
   --root "${coverage_root}" \
   --use 0.8.28 \
   --evm-version cancun \
@@ -32,6 +32,7 @@ NO_COLOR=1 forge coverage \
   -R '@openzeppelin/contracts/=lib/openzeppelin/contracts/' \
   -R '@gluwa/asc-contracts/=lib/asc-contracts/' \
   --ir-minimum \
+  --no-match-coverage '(^|/)test/' \
   --report summary | tee "${coverage_summary}"
 
 read_coverage() {

@@ -20,6 +20,7 @@
     "contracts:fmt:check": "forge fmt --root contracts --check",
     "contracts:test": "forge test --root contracts -vvv",
     "deployments:manifest": "node scripts/generate-deployment-manifest.mjs",
+    "deployments:prepare": "node scripts/prepare-deployment.mjs",
     "evidence:live": "node scripts/verify-live-evidence.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -29,7 +30,7 @@
     "test:e2e": "playwright test",
     "test:web-config": "bash scripts/test-web-production-config.sh",
     "typecheck": "pnpm --filter @attestlock/shared typecheck && pnpm --filter @attestlock/shared build && pnpm --filter './apps/**' typecheck",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:web-config && pnpm build"
+    "verify": "pnpm format:check && pnpm contracts:fmt:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:web-config && pnpm build"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",

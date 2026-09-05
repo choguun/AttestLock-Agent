@@ -25,7 +25,7 @@ The protocol fit is direct rather than inferred from a generic interoperability 
 
 1. Use the [five-minute onboarding path](ONBOARDING.md) and reusable collateral-event schema.
 2. Measure the aggregate public funnel: authorized wallet → proof job → execution/refusal. Do not publish wallet lists.
-3. Measure wallet connection and borrower-draw conversion only after privacy-safe product analytics exist.
+3. Report distinct on-chain draw wallets as protocol activity, not unique people or market adoption. Visits and wallet connections remain unmeasured until privacy-safe product analytics exist.
 4. Add collateral adapters only after one live end-to-end policy is reliable and observable.
 5. Feed proof-backed draw and repayment history into Creditcoin-native risk modules.
 

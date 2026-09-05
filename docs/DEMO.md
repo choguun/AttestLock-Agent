@@ -23,7 +23,7 @@
 
 ## Recovery plan
 
-- Attestation slow: use the previously captured valid live job, but still lock a fresh transaction on screen.
+- Attestation slow: explicitly label any previously completed live example and show its original timestamps. Label every time cut; do not imply 90-second attestation.
 - RPC transient: show the scheduled retry and state that no line exists yet.
 - Browser refresh after proof submission: show the persisted destination transaction and reconciled line rather than starting a second submission.
 - Wallet network error: use the explicit switch buttons.

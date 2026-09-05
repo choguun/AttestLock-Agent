@@ -1,6 +1,6 @@
 import { SEPOLIA_CHAIN_KEY, type Job, type JobEvidence, type JobStatus } from '@attestlock/shared';
 import { chainInfo, proofProvider } from '@gluwa/usc-sdk';
-import { JsonRpcProvider, Wallet } from 'ethers';
+import { FetchRequest, JsonRpcProvider, Wallet } from 'ethers';
 import { AttestcoinProofClient, proofArguments } from './attestcoin-proof-client.js';
 import { CreditcoinSubmitter, ascRefusalCode } from './creditcoin-submitter.js';
 import type { WorkerConfig } from './env.js';
@@ -16,6 +16,8 @@ import {
   proofBuilderAttestedHeight,
 } from './readiness-service.js';
 import { SourceLockValidator } from './source-validator.js';
+import { DeferredError } from './errors.js';
+import type { JobStore } from './store.js';
 
 export {
   ascRefusalCode,
@@ -36,9 +38,17 @@ export class AttestcoinChainAdapter implements ChainAdapter {
   private readonly readinessService: ChainReadinessService;
   private readonly submitter: CreditcoinSubmitter;
 
-  constructor(private readonly config: WorkerConfig) {
-    const sourceProvider = new JsonRpcProvider(config.SOURCE_CHAIN_RPC_URL);
-    const creditcoinProvider = new JsonRpcProvider(config.CREDITCOIN_RPC_URL);
+  constructor(
+    private readonly config: WorkerConfig,
+    private readonly store: JobStore
+  ) {
+    const provider = (url: string) => {
+      const request = new FetchRequest(url);
+      request.timeout = 10_000;
+      return new JsonRpcProvider(request);
+    };
+    const sourceProvider = provider(config.SOURCE_CHAIN_RPC_URL);
+    const creditcoinProvider = provider(config.CREDITCOIN_RPC_URL);
     const wallet = new Wallet(config.CREDITCOIN_RELAYER_PRIVATE_KEY, creditcoinProvider);
     const proofBuilder = new proofProvider.service.ProofBuilder(SEPOLIA_CHAIN_KEY, config.PROOF_BUILDER_URL);
     // The SDK pins its own ethers copy; both providers implement the same EIP-1193 surface.
@@ -56,7 +66,7 @@ export class AttestcoinChainAdapter implements ChainAdapter {
       wallet,
       chainInfoProvider
     );
-    this.submitter = new CreditcoinSubmitter(config, creditcoinProvider, wallet);
+    this.submitter = new CreditcoinSubmitter(config, creditcoinProvider, wallet, store);
   }
 
   readiness() {
@@ -71,6 +81,11 @@ export class AttestcoinChainAdapter implements ChainAdapter {
     job: Job,
     transition: (status: JobStatus, evidence?: JobEvidence) => Promise<void>
   ): Promise<ExecutionResult> {
+    // Restart reconciliation must not depend on fresh source availability or remaining loan term.
+    if (job.evidence.lockId) {
+      const recovered = await this.submitter.reconcile(job, job.evidence.lockId);
+      if (recovered) return { evidence: recovered };
+    }
     const fact = await this.sourceValidator.validate(job);
     await transition('waiting_attestation', {
       blockNumber: fact.blockNumber,
@@ -90,12 +105,13 @@ export class AttestcoinChainAdapter implements ChainAdapter {
       };
     }
 
+    await transition('proving');
     const acquired = await this.proofClient.acquire(job.txHash, fact.blockNumber);
-    await transition('proving', {
-      attestedHeight: acquired.evidence.attestedHeight,
-      attestedAt: acquired.evidence.attestedAt,
-    });
+    this.sourceValidator.assertProofMatches(acquired.proof.txBytes, job, fact);
     await transition('preflight', acquired.evidence);
+    const readiness = await this.readiness();
+    if (!Object.values(readiness.checks).every(Boolean) || !(await this.store.ping()))
+      throw new DeferredError('DEPENDENCIES_NOT_READY');
     return {
       evidence: await this.submitter.submit(
         job,

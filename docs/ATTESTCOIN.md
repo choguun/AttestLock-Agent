@@ -20,14 +20,14 @@ The supported token is the deployed six-decimal `MockUSDC`. The source vault enf
 
 ## Worker path
 
-1. Fetch the transaction receipt from Sepolia.
+1. Reconcile any persisted destination submission first, even if the source RPC is unavailable or the lock has since expired. Otherwise fetch the source transaction and receipt.
 2. Refuse a missing or failed receipt, wrong `to`, wrong emitter, wrong event, wrong borrower, wrong token, small amount, or insufficient remaining term.
 3. Confirm ChainInfo binds chain key `1` to Sepolia `11155111`, exposes an attestation, and keeps advancing within the configured freshness window.
-4. Call `ChainInfoProvider.waitUntilHeightAttested(1, blockNumber, 15_000, 1_200_000, 15_000)` through Creditcoin's native ChainInfo precompile.
-5. Call `ProofBuilder.getProof(txHash)` using `@gluwa/usc-sdk@0.18.0`, then reject a response for any other chain key or block.
+4. Sample native ChainInfo in short steps. If the source height is not attested, persist a delayed queue state and release the worker lease. Repeat without exhausting proof-generation retries.
+5. Call `ProofBuilder.getProof(txHash)` using `@gluwa/usc-sdk@0.18.0`, then reject a response for another chain key, block, or transaction hash. Canonical proof-contained common fields and receipt bytes must match the requested source lock.
 6. Convert the official result into the seven arguments expected by `verifyLockAndOpenLine`.
 7. Run `eth_call` preflight against the exact relayer call.
-8. Broadcast only if simulation succeeds and persist its hash before confirmation.
+8. Require fresh readiness, then serialize the relayer, sign, and atomically persist signed bytes plus their hash before broadcast. Receipt uncertainty only reconciles that exact signed transaction.
 
 Preflight is a cost and operations control, not the trust boundary. The destination contract repeats all material validation.
 
@@ -39,7 +39,7 @@ Preflight is a cost and operations control, not the trust boundary. The destinat
 0x0000000000000000000000000000000000000FD2
 ```
 
-The contract intentionally calls the official verifier ABI directly instead of inheriting generic `ASCBase.execute`. The current base hook receives the action, query ID, and encoded transaction but not `chainKey`; AttestLock must reject every non-Sepolia proof before business logic. Differential tests keep its proof tuple and query-ID packing aligned with the official base implementation.
+The contract intentionally calls the official verifier ABI directly instead of inheriting generic `ASCBase.execute`. The current base hook receives the action, query ID, and encoded transaction but not `chainKey`; AttestLock must reject every non-Sepolia proof before business logic. `contracts/test/OfficialDifferential.t.sol` imports the actual official base and compares both its query ID and recorded verifier calldata with AttestLock over fuzzed heights, indexes, and proof paths.
 
 It then decodes the proof-contained transaction with `EvmV1Decoder` and checks:
 

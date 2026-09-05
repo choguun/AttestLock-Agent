@@ -1,5 +1,5 @@
 import { explainStatus, type JobStatus } from '@attestlock/shared';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RefusedError, TransientError } from './errors.js';
 import { type ChainAdapter, JobProcessor } from './processor.js';
 import { MemoryJobStore } from './store.js';
@@ -8,6 +8,7 @@ const borrower = '0x0000000000000000000000000000000000000001';
 const txHash = `0x${'12'.repeat(32)}`;
 
 describe('JobProcessor', () => {
+  afterEach(() => vi.useRealTimers());
   it('persists every proof stage and executes', async () => {
     const store = new MemoryJobStore();
     const job = await store.createJob(txHash, borrower);
@@ -54,8 +55,10 @@ describe('JobProcessor', () => {
       },
     });
     let now = new Date('2026-09-03T00:00:00.000Z');
+    vi.useFakeTimers();
 
     for (let attempt = 1; attempt <= 4; attempt += 1) {
+      vi.setSystemTime(now);
       const result = await processor.runNext(now);
       expect(result?.attemptCount).toBe(attempt);
       if (attempt < 4) {

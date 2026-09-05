@@ -5,6 +5,7 @@ const proof = {
   chainKey: 1,
   headerNumber: 42,
   txBytes: '0x1234',
+  txHash: `0x${'33'.repeat(32)}`,
   merkleProof: { root: `0x${'11'.repeat(32)}`, siblings: [] },
   continuityProof: { lowerEndpointDigest: `0x${'22'.repeat(32)}`, roots: [] },
 };
@@ -15,8 +16,9 @@ function clients(
 ) {
   const order: string[] = [];
   const chain = {
-    waitUntilHeightAttested: vi.fn(async () => {
+    getSupportedChainByKey: vi.fn(async () => {
       order.push('chain-info');
+      return { chainKey: 1, chainId: 11155111 };
     }),
     getLatestAttestedHeightAndHash: vi.fn(async () => ({ ...latest, hash: '0x', isAttestation: true })),
   };
@@ -30,6 +32,21 @@ function clients(
 }
 
 describe('AttestcoinProofClient', () => {
+  it('rejects a proof for another transaction in the same block', async () => {
+    const { chain, builder } = clients();
+    await expect(
+      new AttestcoinProofClient(chain as never, builder as never).acquire(`0x${'44'.repeat(32)}`, 42)
+    ).rejects.toMatchObject({ code: 'PROOF_DATA_MISMATCH' });
+  });
+
+  it('never asks for a proof when Sepolia registration is mismatched', async () => {
+    const { chain, builder } = clients();
+    chain.getSupportedChainByKey.mockResolvedValue({ chainKey: 1, chainId: 1 });
+    await expect(
+      new AttestcoinProofClient(chain as never, builder as never).acquire(proof.txHash, 42)
+    ).rejects.toMatchObject({ code: 'SOURCE_REGISTRATION_MISMATCH' });
+    expect(builder.getProof).not.toHaveBeenCalled();
+  });
   it('waits through ChainInfo before requesting the exact proof', async () => {
     const { chain, builder, order } = clients();
     const acquired = await new AttestcoinProofClient(chain as never, builder as never).acquire(
@@ -38,7 +55,7 @@ describe('AttestcoinProofClient', () => {
     );
 
     expect(order).toEqual(['chain-info', 'proof-builder']);
-    expect(chain.waitUntilHeightAttested).toHaveBeenCalledWith(1, 42, 15_000, 1_200_000, 15_000);
+    expect(chain.getSupportedChainByKey).toHaveBeenCalledWith(1);
     expect(acquired.proof).toEqual(proof);
     expect(acquired.evidence).toMatchObject({
       attestedHeight: 45,
@@ -65,10 +82,10 @@ describe('AttestcoinProofClient', () => {
 
   it('classifies ChainInfo and ProofBuilder outages as retryable', async () => {
     const unavailable = clients();
-    unavailable.chain.waitUntilHeightAttested.mockRejectedValueOnce(new Error('rpc down'));
+    unavailable.chain.getSupportedChainByKey.mockRejectedValueOnce(new Error('rpc down'));
     await expect(
       new AttestcoinProofClient(unavailable.chain as never, unavailable.builder as never).acquire('0x12', 42)
-    ).rejects.toMatchObject({ code: 'ATTESTATION_TIMEOUT' });
+    ).rejects.toMatchObject({ code: 'ATTESTATION_READ_FAILED' });
 
     const failedProof = clients({ exists: true, height: 45 }, { success: false, error: 'not ready' });
     await expect(

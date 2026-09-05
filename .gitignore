@@ -9,6 +9,7 @@ test-results/
 !.env.example
 !apps/web/.env.production
 contracts/cache/
+cache/
 contracts/out/
 contracts/broadcast/
 contracts/lib/

@@ -13,10 +13,26 @@ export interface TransitionInput {
   incrementAttempt?: boolean;
 }
 
+export const JOB_LEASE_MS = 60_000;
+export interface ClaimedJob extends Job {
+  leaseToken: string;
+}
+export class LeaseLostError extends Error {
+  constructor() {
+    super('The job lease is no longer owned by this processor.');
+  }
+}
+export interface SignedSubmission {
+  jobId: string;
+  relayer: string;
+  txHash: string;
+  rawTransaction: string;
+}
+
 export interface JobStore {
   init(): Promise<void>;
   ping(): Promise<boolean>;
-  recoverInterrupted(): Promise<number>;
+  recoverInterrupted(now?: Date): Promise<number>;
   createChallenge(
     wallet: string,
     txHash: string,
@@ -31,8 +47,14 @@ export interface JobStore {
   getJob(id: string): Promise<Job | null>;
   listJobs(borrower?: string): Promise<Job[]>;
   getPublicStats(): Promise<JobStats>;
-  claimNextRunnable(now?: Date): Promise<Job | null>;
-  transition(id: string, input: TransitionInput): Promise<Job>;
+  claimNextRunnable(now?: Date): Promise<ClaimedJob | null>;
+  renewLease(id: string, token: string, now?: Date): Promise<boolean>;
+  transition(id: string, input: TransitionInput, leaseToken?: string): Promise<Job>;
+  withRelayerLock<T>(relayer: string, work: () => Promise<T>): Promise<T>;
+  getSubmission(jobId: string): Promise<SignedSubmission | null>;
+  hasPendingSubmission(relayer: string): Promise<boolean>;
+  saveSubmission(submission: SignedSubmission, leaseToken: string): Promise<void>;
+  finalizeSubmission(jobId: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -57,6 +79,7 @@ interface JobRow {
   error_code: string | null;
   created_at: Date;
   updated_at: Date;
+  lease_token: string | null;
 }
 
 interface ChallengeRow {
@@ -96,20 +119,31 @@ export class PostgresJobStore implements JobStore {
   }
 
   async init(): Promise<void> {
-    await this.sql`create table if not exists schema_migrations (
+    await this.sql.begin(async (sql) => {
+      // The lock also covers initial schema creation and the complete migration sequence.
+      await sql`select pg_advisory_xact_lock(771940281)`;
+      await sql`create table if not exists schema_migrations (
       version integer primary key,
       applied_at timestamptz not null default now()
     )`;
-    for (const migration of migrations) {
-      await this.sql.begin(async (sql) => {
+      for (const migration of migrations) {
         const applied = await sql<Array<{ version: number }>>`
           select version from schema_migrations where version = ${migration.version}
         `;
-        if (applied.length > 0) return;
+        if (applied.length > 0) continue;
+        if (migration.version === 4) {
+          const collisions = await sql`
+            select lower(tx_hash) from jobs group by lower(tx_hash) having count(*) > 1
+          `;
+          if (collisions.length)
+            throw new Error(
+              'Migration 4 normalization collision: inspect jobs grouped by lower(tx_hash). Preserve historical jobs and attempts; resolve conflicts before retrying.'
+            );
+        }
         for (const statement of migration.statements) await sql.unsafe(statement);
         await sql`insert into schema_migrations (version) values (${migration.version})`;
-      });
-    }
+      }
+    });
   }
 
   async ping(): Promise<boolean> {
@@ -117,27 +151,23 @@ export class PostgresJobStore implements JobStore {
     return rows[0]?.ok === 1;
   }
 
-  async recoverInterrupted(): Promise<number> {
+  async recoverInterrupted(now = new Date()): Promise<number> {
     return this.sql.begin(async (sql) => {
-      await sql`
-        update job_attempts set
-          status = 'interrupted',
-          outcome = 'interrupted',
-          finished_at = now()
-        where finished_at is null and job_id in (
-          select id from jobs where status in ('waiting_attestation', 'proving', 'preflight', 'submitting')
-        )
-      `;
       const rows = await sql<Array<{ id: string }>>`
         update jobs set
           status = 'queued',
           explanation = ${explainStatus('queued')},
-          attempt_count = attempt_count + 1,
-          next_attempt_at = now(),
+          lease_token = null,
+          lease_expires_at = null,
+          next_attempt_at = ${now},
           updated_at = now()
         where status in ('waiting_attestation', 'proving', 'preflight', 'submitting')
+          and (lease_expires_at is null or lease_expires_at <= ${now})
         returning id
       `;
+      if (rows.length)
+        await sql`update job_attempts set status = 'interrupted', outcome = 'interrupted', finished_at = now()
+        where finished_at is null and job_id in ${sql(rows.map((row) => row.id))}`;
       return rows.length;
     });
   }
@@ -194,7 +224,7 @@ export class PostgresJobStore implements JobStore {
   ): Promise<Job> {
     txHash = normalizeTxHash(txHash);
     return this.sql.begin(async (sql) => {
-      await sql`select pg_advisory_xact_lock(hashtext(${borrower}))`;
+      await sql`select pg_advisory_xact_lock(hashtext(${borrower.toLowerCase()}))`;
       const rows = await sql<Array<ChallengeRow>>`
         select nonce, wallet, tx_hash, typed_data, expires_at, used
         from challenges where nonce = ${nonce} for update
@@ -204,20 +234,21 @@ export class PostgresJobStore implements JobStore {
         !challenge ||
         challenge.used ||
         challenge.expires_at.getTime() <= Date.now() ||
-        challenge.wallet !== borrower ||
+        challenge.wallet.toLowerCase() !== borrower.toLowerCase() ||
         challenge.tx_hash?.toLowerCase() !== txHash.toLowerCase()
       ) {
         throw new ChallengeAuthorizationError('Challenge is missing, expired, consumed, or mismatched.');
       }
-      const existing = await sql<Array<JobRow>>`select * from jobs where tx_hash = ${txHash}`;
+      const existing = await sql<
+        Array<JobRow>
+      >`select * from jobs where lower(tx_hash) = ${txHash} and lower(borrower) = ${borrower.toLowerCase()}`;
       if (existing[0]) {
         const job = toJob(existing[0]);
-        if (job.borrower !== borrower) throw new TransactionOwnerMismatchError();
         await sql`update challenges set used = true where nonce = ${nonce}`;
         return job;
       }
       const counts = await sql<Array<{ count: number }>>`
-        select count(*)::int as count from jobs where borrower = ${borrower} and created_at >= ${since}
+        select count(*)::int as count from jobs where lower(borrower) = ${borrower.toLowerCase()} and created_at >= ${since}
       `;
       if ((counts[0]?.count ?? 0) >= maxJobs) {
         throw new JobQuotaExceededError('Daily proof-job quota reached.');
@@ -227,11 +258,10 @@ export class PostgresJobStore implements JobStore {
       const jobs = await sql<Array<JobRow>>`
         insert into jobs (id, tx_hash, borrower, status, explanation)
         values (${id}, ${txHash}, ${borrower}, 'queued', ${explainStatus('queued')})
-        on conflict (tx_hash) do update set tx_hash = excluded.tx_hash
+        on conflict (lower(borrower), lower(tx_hash)) do update set tx_hash = excluded.tx_hash
         returning *
       `;
       const job = toJob(jobs[0]!);
-      if (job.borrower !== borrower) throw new TransactionOwnerMismatchError();
       return job;
     });
   }
@@ -249,11 +279,10 @@ export class PostgresJobStore implements JobStore {
     const rows = await this.sql<Array<JobRow>>`
       insert into jobs (id, tx_hash, borrower, status, explanation)
       values (${id}, ${txHash}, ${borrower}, 'queued', ${explainStatus('queued')})
-      on conflict (tx_hash) do update set tx_hash = excluded.tx_hash
+      on conflict (lower(borrower), lower(tx_hash)) do update set tx_hash = excluded.tx_hash
       returning *
     `;
     const job = toJob(rows[0]!);
-    if (job.borrower !== borrower) throw new TransactionOwnerMismatchError();
     return job;
   }
 
@@ -266,7 +295,7 @@ export class PostgresJobStore implements JobStore {
     const rows = borrower
       ? await this.sql<
           Array<JobRow>
-        >`select * from jobs where borrower = ${borrower} order by created_at desc limit 100`
+        >`select * from jobs where lower(borrower) = ${borrower.toLowerCase()} order by created_at desc limit 100`
       : await this.sql<Array<JobRow>>`select * from jobs order by created_at desc limit 100`;
     return rows.map(toJob);
   }
@@ -283,7 +312,7 @@ export class PostgresJobStore implements JobStore {
     >`
       select
         count(*)::int as total_jobs,
-        count(distinct borrower)::int as unique_wallets,
+        count(distinct lower(borrower))::int as unique_wallets,
         count(*) filter (where status = 'executed')::int as executed_jobs,
         count(*) filter (where status = 'refused')::int as refused_jobs,
         count(*) filter (where status = 'failed')::int as failed_jobs
@@ -299,7 +328,9 @@ export class PostgresJobStore implements JobStore {
     };
   }
 
-  async claimNextRunnable(now = new Date()): Promise<Job | null> {
+  async claimNextRunnable(now = new Date()): Promise<ClaimedJob | null> {
+    await this.recoverInterrupted(now);
+    const token = randomUUID();
     return this.sql.begin(async (sql) => {
       const rows = await sql<Array<JobRow>>`
         with candidate as (
@@ -311,6 +342,8 @@ export class PostgresJobStore implements JobStore {
           status = 'waiting_attestation',
           explanation = ${explainStatus('waiting_attestation')},
           next_attempt_at = null,
+          lease_token = ${token},
+          lease_expires_at = ${new Date(now.getTime() + JOB_LEASE_MS)},
           updated_at = now()
         where id = (select id from candidate)
         returning *
@@ -319,14 +352,21 @@ export class PostgresJobStore implements JobStore {
       if (!row) return null;
       await sql`
         insert into job_attempts (job_id, attempt_number, status)
-        values (${row.id}, ${row.attempt_count + 1}, 'waiting_attestation')
-        on conflict (job_id, attempt_number) do nothing
+        select ${row.id}, coalesce(max(attempt_number), 0) + 1, 'waiting_attestation'
+        from job_attempts where job_id = ${row.id}
       `;
-      return toJob(row);
+      return { ...toJob(row), leaseToken: token };
     });
   }
 
-  async transition(id: string, input: TransitionInput): Promise<Job> {
+  async renewLease(id: string, token: string, now = new Date()): Promise<boolean> {
+    const rows = await this.sql`update jobs set lease_expires_at = ${new Date(now.getTime() + JOB_LEASE_MS)}
+      where id = ${id} and lease_token = ${token} and lease_expires_at > ${now} returning id`;
+    return rows.length === 1;
+  }
+
+  async transition(id: string, input: TransitionInput, leaseToken?: string): Promise<Job> {
+    const releaseLease = ['queued', 'executed', 'refused', 'failed'].includes(input.status);
     const evidenceValues = Object.fromEntries(
       Object.entries(input.evidence ?? {}).filter((entry) => entry[1] !== undefined)
     ) as Record<string, string | number>;
@@ -340,11 +380,15 @@ export class PostgresJobStore implements JobStore {
           error_code = ${input.errorCode === undefined ? null : input.errorCode},
           next_attempt_at = ${input.nextAttemptAt ?? null},
           attempt_count = attempt_count + ${input.incrementAttempt ? 1 : 0},
+          lease_token = case when ${releaseLease} then null else lease_token end,
+          lease_expires_at = case when ${releaseLease} then null else lease_expires_at end,
           updated_at = now()
         where id = ${id}
+          and lease_token is not distinct from ${leaseToken ?? null}::uuid
+          and (lease_expires_at is null or lease_expires_at > now())
         returning *
       `;
-      if (!rows[0]) throw new Error(`Unknown job ${id}`);
+      if (!rows[0]) throw new LeaseLostError();
 
       const outcome =
         input.status === 'queued'
@@ -384,22 +428,65 @@ export class PostgresJobStore implements JobStore {
   async close(): Promise<void> {
     await this.sql.end();
   }
+
+  async withRelayerLock<T>(relayer: string, work: () => Promise<T>): Promise<T> {
+    // A transaction-scoped advisory lock survives async RPC calls and is released on disconnect.
+    return this.sql.begin(async (sql) => {
+      await sql`select pg_advisory_xact_lock(hashtextextended(${relayer}, 719))`;
+      return work();
+    }) as Promise<T>;
+  }
+
+  async getSubmission(jobId: string): Promise<SignedSubmission | null> {
+    const rows = await this
+      .sql`select job_id, relayer, tx_hash, raw_transaction from signed_submissions where job_id = ${jobId}`;
+    const row = rows[0];
+    return row
+      ? { jobId: row.job_id, relayer: row.relayer, txHash: row.tx_hash, rawTransaction: row.raw_transaction }
+      : null;
+  }
+
+  async hasPendingSubmission(relayer: string): Promise<boolean> {
+    const rows = await this
+      .sql`select job_id from signed_submissions where relayer = ${relayer} and not finalized limit 1`;
+    return rows.length > 0;
+  }
+
+  async saveSubmission(submission: SignedSubmission, leaseToken: string): Promise<void> {
+    await this.sql.begin(async (sql) => {
+      const rows =
+        await sql`update jobs set evidence = evidence || ${sql.json({ creditcoinSubmissionTxHash: submission.txHash })}, updated_at = now()
+        where id = ${submission.jobId} and lease_token = ${leaseToken} and lease_expires_at > now() returning id`;
+      if (!rows.length) throw new LeaseLostError();
+      await sql`insert into signed_submissions (job_id, relayer, tx_hash, raw_transaction)
+        values (${submission.jobId}, ${submission.relayer}, ${submission.txHash}, ${submission.rawTransaction})`;
+    });
+  }
+
+  async finalizeSubmission(jobId: string): Promise<void> {
+    await this.sql`update signed_submissions set finalized = true where job_id = ${jobId}`;
+  }
 }
 
 export class MemoryJobStore implements JobStore {
   readonly jobs = new Map<string, Job>();
   readonly challenges = new Map<string, Challenge & { used: boolean }>();
   private authorizationTail: Promise<void> = Promise.resolve();
+  private readonly leases = new Map<string, { token: string; expiresAt: number }>();
+  private readonly submissions = new Map<string, SignedSubmission & { finalized: boolean }>();
+  private relayerTail: Promise<unknown> = Promise.resolve();
 
   async init(): Promise<void> {}
   async ping(): Promise<boolean> {
     return true;
   }
 
-  async recoverInterrupted(): Promise<number> {
+  async recoverInterrupted(now = new Date()): Promise<number> {
     let recovered = 0;
     for (const job of this.jobs.values()) {
       if (!['waiting_attestation', 'proving', 'preflight', 'submitting'].includes(job.status)) continue;
+      if ((this.leases.get(job.id)?.expiresAt ?? 0) > now.getTime()) continue;
+      this.leases.delete(job.id);
       this.jobs.set(job.id, {
         ...job,
         status: 'queued',
@@ -457,14 +544,15 @@ export class MemoryJobStore implements JobStore {
         !challenge ||
         challenge.used ||
         new Date(challenge.expiresAt).getTime() <= Date.now() ||
-        challenge.wallet !== borrower ||
+        challenge.wallet.toLowerCase() !== borrower.toLowerCase() ||
         challenge.txHash !== txHash
       ) {
         throw new ChallengeAuthorizationError('Challenge is missing, expired, consumed, or mismatched.');
       }
-      const existing = [...this.jobs.values()].find((job) => job.txHash === txHash);
+      const existing = [...this.jobs.values()].find(
+        (job) => job.txHash === txHash && job.borrower.toLowerCase() === borrower.toLowerCase()
+      );
       if (existing) {
-        if (existing.borrower !== borrower) throw new TransactionOwnerMismatchError();
         challenge.used = true;
         return existing;
       }
@@ -480,7 +568,7 @@ export class MemoryJobStore implements JobStore {
 
   async countRecentJobs(wallet: string, since: Date): Promise<number> {
     return [...this.jobs.values()].filter(
-      (job) => job.borrower === wallet && new Date(job.createdAt) >= since
+      (job) => job.borrower.toLowerCase() === wallet.toLowerCase() && new Date(job.createdAt) >= since
     ).length;
   }
 
@@ -496,9 +584,10 @@ export class MemoryJobStore implements JobStore {
 
   async createJob(txHash: string, borrower: string): Promise<Job> {
     txHash = normalizeTxHash(txHash);
-    const existing = [...this.jobs.values()].find((job) => job.txHash === txHash);
+    const existing = [...this.jobs.values()].find(
+      (job) => job.txHash === txHash && job.borrower.toLowerCase() === borrower.toLowerCase()
+    );
     if (existing) {
-      if (existing.borrower !== borrower) throw new TransactionOwnerMismatchError();
       return existing;
     }
     const now = new Date().toISOString();
@@ -525,7 +614,7 @@ export class MemoryJobStore implements JobStore {
 
   async listJobs(borrower?: string): Promise<Job[]> {
     return [...this.jobs.values()]
-      .filter((job) => !borrower || job.borrower === borrower)
+      .filter((job) => !borrower || job.borrower.toLowerCase() === borrower.toLowerCase())
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
@@ -533,14 +622,15 @@ export class MemoryJobStore implements JobStore {
     const jobs = [...this.jobs.values()];
     return {
       totalJobs: jobs.length,
-      uniqueWallets: new Set(jobs.map((job) => job.borrower)).size,
+      uniqueWallets: new Set(jobs.map((job) => job.borrower.toLowerCase())).size,
       executedJobs: jobs.filter((job) => job.status === 'executed').length,
       refusedJobs: jobs.filter((job) => job.status === 'refused').length,
       failedJobs: jobs.filter((job) => job.status === 'failed').length,
     };
   }
 
-  async claimNextRunnable(now = new Date()): Promise<Job | null> {
+  async claimNextRunnable(now = new Date()): Promise<ClaimedJob | null> {
+    await this.recoverInterrupted(now);
     const job =
       [...this.jobs.values()].find(
         (job) =>
@@ -556,10 +646,21 @@ export class MemoryJobStore implements JobStore {
       updatedAt: new Date().toISOString(),
     };
     this.jobs.set(job.id, claimed);
-    return claimed;
+    const token = randomUUID();
+    this.leases.set(job.id, { token, expiresAt: now.getTime() + JOB_LEASE_MS });
+    return { ...claimed, leaseToken: token };
   }
 
-  async transition(id: string, input: TransitionInput): Promise<Job> {
+  async renewLease(id: string, token: string, now = new Date()): Promise<boolean> {
+    const lease = this.leases.get(id);
+    if (!lease || lease.token !== token || lease.expiresAt <= now.getTime()) return false;
+    lease.expiresAt = now.getTime() + JOB_LEASE_MS;
+    return true;
+  }
+
+  async transition(id: string, input: TransitionInput, leaseToken?: string): Promise<Job> {
+    const lease = this.leases.get(id);
+    if (lease?.token !== leaseToken || (lease && lease.expiresAt <= Date.now())) throw new LeaseLostError();
     const current = this.jobs.get(id);
     if (!current) throw new Error(`Unknown job ${id}`);
     const next: Job = {
@@ -573,8 +674,35 @@ export class MemoryJobStore implements JobStore {
       updatedAt: new Date().toISOString(),
     };
     this.jobs.set(id, next);
+    if (['queued', 'executed', 'refused', 'failed'].includes(input.status)) this.leases.delete(id);
     return next;
   }
 
   async close(): Promise<void> {}
+
+  async withRelayerLock<T>(_relayer: string, work: () => Promise<T>): Promise<T> {
+    const result = this.relayerTail.then(work);
+    this.relayerTail = result.catch(() => undefined);
+    return result;
+  }
+  async getSubmission(jobId: string): Promise<SignedSubmission | null> {
+    return this.submissions.get(jobId) ?? null;
+  }
+  async hasPendingSubmission(relayer: string): Promise<boolean> {
+    return [...this.submissions.values()].some((s) => s.relayer === relayer && !s.finalized);
+  }
+  async saveSubmission(submission: SignedSubmission, leaseToken: string): Promise<void> {
+    if (this.submissions.has(submission.jobId) || (await this.hasPendingSubmission(submission.relayer)))
+      throw new Error('A signed submission is already pending.');
+    await this.transition(
+      submission.jobId,
+      { status: 'submitting', evidence: { creditcoinSubmissionTxHash: submission.txHash } },
+      leaseToken
+    );
+    this.submissions.set(submission.jobId, { ...submission, finalized: false });
+  }
+  async finalizeSubmission(jobId: string): Promise<void> {
+    const submission = this.submissions.get(jobId);
+    if (submission) submission.finalized = true;
+  }
 }
