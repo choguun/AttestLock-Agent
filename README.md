@@ -121,7 +121,7 @@ pnpm deployments:manifest
 pnpm evidence:live
 ```
 
-Set `REQUIRE_VERIFIED=true` when generating final manifests. Sepolia verification lookup additionally needs a local `ETHERSCAN_API_KEY`; it is queried but never written to the manifest.
+Set `REQUIRE_VERIFIED=true` when generating final manifests. The generator uses public Sepolia and Creditcoin Blockscout verification endpoints, so an Etherscan API key is not required. The wallet may still link to Etherscan for source receipts.
 
 Deployment is not “done” until the proof transaction and borrower-signed borrow are visible on both explorers.
 

@@ -6,7 +6,7 @@ const networks = {
     chainId: 11_155_111,
     label: 'Sepolia',
     contracts: ['MockUSDC', 'LockVault'],
-    explorer: 'https://sepolia.etherscan.io',
+    explorer: 'https://eth-sepolia.blockscout.com',
     dependencies: { openzeppelin: '5.4.0' },
   },
   'creditcoin-testnet': {
@@ -63,24 +63,13 @@ const contractRecords = {};
 const blocks = [];
 async function verificationStatus(address) {
   let endpoint;
-  if (networkKey === 'creditcoin-testnet') {
+  {
     endpoint = new URL('/api', network.explorer);
     endpoint.search = new URLSearchParams({
       module: 'contract',
       action: 'getsourcecode',
       address,
     }).toString();
-  } else if (process.env.ETHERSCAN_API_KEY) {
-    endpoint = new URL('https://api.etherscan.io/v2/api');
-    endpoint.search = new URLSearchParams({
-      chainid: String(network.chainId),
-      module: 'contract',
-      action: 'getsourcecode',
-      address,
-      apikey: process.env.ETHERSCAN_API_KEY,
-    }).toString();
-  } else {
-    return 'not-checked';
   }
   try {
     const response = await fetch(endpoint, { signal: AbortSignal.timeout(15_000) });
