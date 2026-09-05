@@ -6,7 +6,7 @@ export const CHAIN_INFO_ADDRESS = '0x0000000000000000000000000000000000000fd3';
 export const CREDITCOIN_RPC_URL = 'https://rpc.cc3-testnet.creditcoin.network';
 export const SEPOLIA_RPC_URL = 'https://ethereum-sepolia-rpc.publicnode.com';
 export const CREDITCOIN_EXPLORER_URL = 'https://creditcoin-testnet.blockscout.com';
-export const SEPOLIA_EXPLORER_URL = 'https://sepolia.etherscan.io';
+export const SEPOLIA_EXPLORER_URL = 'https://eth-sepolia.blockscout.com';
 export const PROOF_BUILDER_URL = 'https://prover.cc3-testnet.creditcoin.network';
 
 export const MIN_COLLATERAL = 100_000_000n;

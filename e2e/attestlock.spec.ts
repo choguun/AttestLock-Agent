@@ -433,6 +433,14 @@ test('published real draw evidence is wallet-free and remains explicitly partial
   await expect(evidence).toContainText('borrower signed a 50 mUSD draw');
   await expect(evidence).toContainText('Post-maturity repayment');
   await expect(evidence).toContainText('50000000 borrowed − 0 repaid = 50000000 debt');
+  await expect(evidence.getByRole('link', { name: /lock: block 11639758/ })).toHaveAttribute(
+    'href',
+    'https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f'
+  );
+  await expect(evidence.getByRole('link', { name: /^junk: block/ })).toHaveAttribute(
+    'href',
+    'https://eth-sepolia.blockscout.com/tx/0x1a361933c4e42c8942c81ae0acb5c20e48c15349570e7e9df525be91da5bf582'
+  );
   await expect(evidence.getByRole('link', { name: /borrow: block 5434865/ })).toHaveAttribute(
     'href',
     'https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4'

@@ -39,6 +39,12 @@ describe('wallet-free evidence', () => {
       'href',
       'https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4'
     );
+    for (const name of ['lock', 'junk'] as const) {
+      expect(screen.getByRole('link', { name: new RegExp(`^${name}: block`) })).toHaveAttribute(
+        'href',
+        `https://eth-sepolia.blockscout.com/tx/${nativeEvidence.transactions[name].hash}`
+      );
+    }
     expect(screen.getByText(/50000000 borrowed/)).toHaveTextContent(
       '50000000 borrowed − 0 repaid = 50000000 debt.'
     );

@@ -19,7 +19,8 @@ Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/
 - [x] Native receipt, continuity-linkage, wallet-free partial snapshot and deck follow-up CI/merge (PR #6; 111 tests, zero skips, seven browser paths).
 - [x] Borrow-evidence follow-up local checks: 137 tests, zero skips, eight browser paths; exact draw checker, 22 rejection mutations, SSE slot release and proxy-boundary regressions.
 - [x] Borrow-evidence PR #7 implementation commit `71b148e` CI 33969297415 and fresh public clone: 137 tests, zero skips, eight browser paths.
-- [ ] Borrow-evidence merged release/deployed snapshot verification; attach exact deployment/CI/smoke receipt to PR #7 after checks pass.
+- [x] Borrow-evidence PR #7 merged release `4296da5`, main CI 33969720763 and manual live smoke 33969995957; both hosted services serve that SHA and retain the two jobs without a new relayer nonce.
+- [ ] Public explorer-link follow-up: a clean unauthenticated check found Etherscan HTTP 403; switch shared Sepolia links to Blockscout and rerun all public-link checks. The remaining maturity/browser/media gates are unchanged.
 - [x] Real hosted borrower draw; exact historical calldata/event/token/profile checker and sanitized fixture.
 - [ ] Production browser crash/replacement drill and Railway proxy-boundary confirmation.
 
