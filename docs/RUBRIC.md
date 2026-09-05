@@ -19,7 +19,7 @@ The previous 87/100 claim is withdrawn: it overcredited recovery, operational re
 | ------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Original hackathon work and redistribution rights | Incremental history, MIT original code, attributed dependencies/research | Original code present; historical copied research rights review still pending |
 | Meaningful Attestcoin integration                 | ASC proof gate, official differential harness                            | Code/tests present; native execution pending                                  |
-| Creditcoin testnet deployment                     | Actual manifests and explorer bytecode verification                      | Pending                                                                       |
+| Creditcoin testnet deployment                     | Actual manifests and explorer bytecode verification                      | All five deployed/verified from green main; see LIVE_TESTNET.md               |
 | Technical documentation                           | README, architecture, integration, threat model, claim ledger            | Present; active claims reconciled with explicit limits                        |
 | PDF deck or whitepaper                            | Six-slide draft PDF/PPTX                                                 | Draft has stale counts/screenshot; final refresh pending                      |
 | Prototype video                                   | Public 90-second demonstration                                           | Pending                                                                       |

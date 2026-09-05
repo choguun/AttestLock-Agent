@@ -1,0 +1,181 @@
+{
+  "chainId": 102031,
+  "network": "Creditcoin Testnet",
+  "deployedAt": "2026-09-05T10:22:45.000Z",
+  "generatedAt": "2026-09-05T10:27:00.012Z",
+  "commitSha": "6aec094ed321675199eaa2ff818e4a719c67a37b",
+  "compilerProvenance": {
+    "preparedAt": "2026-09-05T10:13:51.319Z",
+    "ciRun": "https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700",
+    "foundryVersion": "forge Version: 1.7.1\nCommit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8\nBuild Timestamp: 2026-05-08T07:54:31.470926000Z (1778226871)\nBuild Profile: dist"
+  },
+  "solcVersion": "0.8.28+commit.7893614a",
+  "dependencies": {
+    "@gluwa/asc-contracts": "0.2.1",
+    "@gluwa/usc-sdk": "0.18.0",
+    "@openzeppelin/contracts": "5.4.0"
+  },
+  "deploymentBlock": 5434262,
+  "deployer": "0x013575D43f206930ea0b1741D45a6993dF1E2209",
+  "contracts": {
+    "MockUSD": "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+    "CreditPool": "0x2E6C991d87424f3318d0d050ee340bbEfEC94634",
+    "AttestLockASC": "0x1CA573B695309b2Bfaf7F306B76dc16443708117"
+  },
+  "contractRecords": {
+    "MockUSD": {
+      "address": "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+      "constructorArguments": ["0x013575D43f206930ea0b1741D45a6993dF1E2209"],
+      "deploymentTransaction": "0xa8d9a949af6eaf9d25a52180be8552d34a06aa249bf7163e759bf77010285d35",
+      "broadcastReportedTransaction": "0xa8d9a949af6eaf9d25a52180be8552d34a06aa249bf7163e759bf77010285d35",
+      "broadcastHashMatchedReceipt": true,
+      "deploymentBlock": 5434262,
+      "deployedAt": "2026-09-05T10:22:45.000Z",
+      "runtimeCodeHash": "0xed6802f7ca829b7e9f063326c605495d2824160948d41fdaf814e78621722748",
+      "artifactCreationCodeHash": "0x1ec70883136ae182820e78c214a586bff6ee2da4a36d682e7488f9ccd0f13c07",
+      "compiler": {
+        "version": "0.8.28+commit.7893614a"
+      },
+      "compilerSettings": {
+        "remappings": [
+          "@gluwa/asc-contracts/=../node_modules/@gluwa/asc-contracts/",
+          "@openzeppelin/contracts/=../node_modules/@openzeppelin/contracts/",
+          "forge-std/=lib/forge-std/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 200
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "compilationTarget": {
+          "src/creditcoin/MockUSD.sol": "MockUSD"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true
+      },
+      "verificationStatus": "verified",
+      "explorerAddressUrl": "https://creditcoin-testnet.blockscout.com/address/0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+      "explorerTransactionUrl": "https://creditcoin-testnet.blockscout.com/tx/0xa8d9a949af6eaf9d25a52180be8552d34a06aa249bf7163e759bf77010285d35"
+    },
+    "CreditPool": {
+      "address": "0x2E6C991d87424f3318d0d050ee340bbEfEC94634",
+      "constructorArguments": [
+        "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+        "0x013575D43f206930ea0b1741D45a6993dF1E2209"
+      ],
+      "deploymentTransaction": "0xee4d93bed8c02bf4f09e198189bd3db71c4bd75986e5b85063cfd79193ac2b68",
+      "broadcastReportedTransaction": "0xee4d93bed8c02bf4f09e198189bd3db71c4bd75986e5b85063cfd79193ac2b68",
+      "broadcastHashMatchedReceipt": true,
+      "deploymentBlock": 5434262,
+      "deployedAt": "2026-09-05T10:22:45.000Z",
+      "runtimeCodeHash": "0xcc01f7e087fb575989eb898faf2ea626bba95fb9bd567d5d70ce396b92a77174",
+      "artifactCreationCodeHash": "0x5934834b963e77850581a3597d955e04c3f1fbb36808772eae72ce1ef2c469a1",
+      "compiler": {
+        "version": "0.8.28+commit.7893614a"
+      },
+      "compilerSettings": {
+        "remappings": [
+          "@gluwa/asc-contracts/=../node_modules/@gluwa/asc-contracts/",
+          "@openzeppelin/contracts/=../node_modules/@openzeppelin/contracts/",
+          "forge-std/=lib/forge-std/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 200
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "compilationTarget": {
+          "src/creditcoin/CreditPool.sol": "CreditPool"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true
+      },
+      "verificationStatus": "verified",
+      "explorerAddressUrl": "https://creditcoin-testnet.blockscout.com/address/0x2E6C991d87424f3318d0d050ee340bbEfEC94634",
+      "explorerTransactionUrl": "https://creditcoin-testnet.blockscout.com/tx/0xee4d93bed8c02bf4f09e198189bd3db71c4bd75986e5b85063cfd79193ac2b68"
+    },
+    "AttestLockASC": {
+      "address": "0x1CA573B695309b2Bfaf7F306B76dc16443708117",
+      "constructorArguments": [
+        "0x2E6C991d87424f3318d0d050ee340bbEfEC94634",
+        "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+        "0x619d67E4765b22dd847144Ac4D39027753d60Eff"
+      ],
+      "deploymentTransaction": "0x4290ed2fba3f21f355b17f82d20c77684559da856616e4169f6d083e1eeadb07",
+      "broadcastReportedTransaction": "0x72ddc167d0f8fb4c18f9531610076353328859d76a924a7b139e854286bb1f8d",
+      "broadcastHashMatchedReceipt": false,
+      "deploymentBlock": 5434262,
+      "deployedAt": "2026-09-05T10:22:45.000Z",
+      "runtimeCodeHash": "0xbab9a6a161da43b403589e61a54040c50249bcb609b03e13fc7289050f537494",
+      "artifactCreationCodeHash": "0x15df4e7d1d6538c9a62a93e2415ca133f5129a33f44145ab8fa267f5544a31a3",
+      "compiler": {
+        "version": "0.8.28+commit.7893614a"
+      },
+      "compilerSettings": {
+        "remappings": [
+          "@gluwa/asc-contracts/=../node_modules/@gluwa/asc-contracts/",
+          "@openzeppelin/contracts/=../node_modules/@openzeppelin/contracts/",
+          "forge-std/=lib/forge-std/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 200
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "compilationTarget": {
+          "src/creditcoin/AttestLockASC.sol": "AttestLockASC"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true
+      },
+      "verificationStatus": "verified",
+      "explorerAddressUrl": "https://creditcoin-testnet.blockscout.com/address/0x1CA573B695309b2Bfaf7F306B76dc16443708117",
+      "explorerTransactionUrl": "https://creditcoin-testnet.blockscout.com/tx/0x4290ed2fba3f21f355b17f82d20c77684559da856616e4169f6d083e1eeadb07"
+    }
+  },
+  "constructorArguments": {
+    "MockUSD": ["0x013575D43f206930ea0b1741D45a6993dF1E2209"],
+    "CreditPool": [
+      "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+      "0x013575D43f206930ea0b1741D45a6993dF1E2209"
+    ],
+    "AttestLockASC": [
+      "0x2E6C991d87424f3318d0d050ee340bbEfEC94634",
+      "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+      "0x619d67E4765b22dd847144Ac4D39027753d60Eff"
+    ]
+  },
+  "codeHashes": {
+    "MockUSD": "0xed6802f7ca829b7e9f063326c605495d2824160948d41fdaf814e78621722748",
+    "CreditPool": "0xcc01f7e087fb575989eb898faf2ea626bba95fb9bd567d5d70ce396b92a77174",
+    "AttestLockASC": "0xbab9a6a161da43b403589e61a54040c50249bcb609b03e13fc7289050f537494"
+  },
+  "transactions": {
+    "MockUSD": "0xa8d9a949af6eaf9d25a52180be8552d34a06aa249bf7163e759bf77010285d35",
+    "CreditPool": "0xee4d93bed8c02bf4f09e198189bd3db71c4bd75986e5b85063cfd79193ac2b68",
+    "AttestLockASC": "0x4290ed2fba3f21f355b17f82d20c77684559da856616e4169f6d083e1eeadb07"
+  },
+  "explorerUrls": {
+    "MockUSD": "https://creditcoin-testnet.blockscout.com/address/0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+    "MockUSDTransaction": "https://creditcoin-testnet.blockscout.com/tx/0xa8d9a949af6eaf9d25a52180be8552d34a06aa249bf7163e759bf77010285d35",
+    "CreditPool": "https://creditcoin-testnet.blockscout.com/address/0x2E6C991d87424f3318d0d050ee340bbEfEC94634",
+    "CreditPoolTransaction": "https://creditcoin-testnet.blockscout.com/tx/0xee4d93bed8c02bf4f09e198189bd3db71c4bd75986e5b85063cfd79193ac2b68",
+    "AttestLockASC": "https://creditcoin-testnet.blockscout.com/address/0x1CA573B695309b2Bfaf7F306B76dc16443708117",
+    "AttestLockASCTransaction": "https://creditcoin-testnet.blockscout.com/tx/0x4290ed2fba3f21f355b17f82d20c77684559da856616e4169f6d083e1eeadb07"
+  },
+  "sourceBindings": {
+    "chainKey": 1,
+    "LockVault": "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+    "MockUSDC": "0x619d67E4765b22dd847144Ac4D39027753d60Eff"
+  },
+  "poolLiquidityAtomic": "1000000000000"
+}

@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: local hardening is implemented and under release verification. The public site remains a preview. New encrypted testnet accounts have faucet funding; deployment, native proof, hosted execution, post-maturity repayment, and videos are separate pending gates. See the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
+> Current status: audit hardening is merged with green CI. All five contracts are deployed and verified; a real 100 mUSDC lock, matching ProofBuilder fixture and unused-query tamper revert are recorded. The public site remains a preview while worker deployment is repaired. Successful native origination, hosted wallet flow, post-maturity repayment and videos remain pending. See [live observations](docs/LIVE_TESTNET.md), the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
 
 **Hosted preview:** https://attestlock-web-production.up.railway.app
 
@@ -47,7 +47,7 @@ The prototype does **not** claim trustless cross-chain liquidation or release. S
 | `apps/web`                 | Vite React wallet and evidence console                                          |
 | `packages/shared`          | ABIs, network constants, API types, deterministic status copy                   |
 | `docs`                     | Integration, architecture, threat model, demo, evidence, and submission package |
-| `deployments`              | Sanitized deployment manifests; live values are pending                         |
+| `deployments`              | Verified live manifests plus clearly named example templates                    |
 
 ## Stack and pinned protocol dependencies
 

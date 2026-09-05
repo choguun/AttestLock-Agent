@@ -92,6 +92,34 @@ contract AttestLockASCTest is Test {
         assertEq(creditOpened, 0);
     }
 
+    function testObservedNativeMerkleRevertLeavesExistingDebtUnchanged() external {
+        bytes memory encodedTx = _validEncodedTx();
+        _mockVerifier(encodedTx, true, 0);
+        _execute(encodedTx, 1);
+        vm.prank(borrower);
+        pool.borrow(lockId, 40e6);
+        vm.clearMockedCalls();
+        INativeQueryVerifier.MerkleProofEntry[] memory siblings =
+            new INativeQueryVerifier.MerkleProofEntry[](0);
+        INativeQueryVerifier.MerkleProof memory proof =
+            INativeQueryVerifier.MerkleProof({ root: merkleRoot, siblings: siblings });
+        vm.mockCall(
+            PRECOMPILE,
+            abi.encodeWithSelector(INativeQueryVerifier.calculateTxIndex.selector, proof),
+            abi.encode(uint64(1))
+        );
+        bytes4 selector = bytes4(
+            keccak256("verifyAndEmit(uint64,uint64,bytes,(bytes32,(bytes32,bool)[]),(bytes32,bytes32[]))")
+        );
+        bytes memory reason = abi.encodeWithSignature("Error(string)", "Merkle proof validation failed");
+        vm.mockCallRevert(PRECOMPILE, abi.encodePacked(selector), reason);
+        bytes32 candidate = keccak256("native-rejected-lock");
+        bytes32 beforeState = _protocolSnapshot(candidate);
+        vm.expectRevert(reason);
+        _execute(encodedTx, 1);
+        assertEq(_protocolSnapshot(candidate), beforeState);
+    }
+
     function testRejectsFailedReceipt() external {
         bytes memory encodedTx =
             _encodedLockTx(0, sourceVault, sourceToken, 200e6, uint64(block.timestamp + 14 days), lockId);

@@ -1,0 +1,118 @@
+{
+  "chainId": 11155111,
+  "network": "Sepolia",
+  "deployedAt": "2026-09-05T10:14:24.000Z",
+  "generatedAt": "2026-09-05T10:25:09.842Z",
+  "commitSha": "6aec094ed321675199eaa2ff818e4a719c67a37b",
+  "compilerProvenance": {
+    "preparedAt": "2026-09-05T10:13:51.319Z",
+    "ciRun": "https://github.com/choguun/AttestLock-Agent/actions/runs/33959893700",
+    "foundryVersion": "forge Version: 1.7.1\nCommit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8\nBuild Timestamp: 2026-05-08T07:54:31.470926000Z (1778226871)\nBuild Profile: dist"
+  },
+  "solcVersion": "0.8.28+commit.7893614a",
+  "dependencies": {
+    "@gluwa/asc-contracts": "0.2.1",
+    "@gluwa/usc-sdk": "0.18.0",
+    "@openzeppelin/contracts": "5.4.0"
+  },
+  "deploymentBlock": 11639710,
+  "deployer": "0x013575D43f206930ea0b1741D45a6993dF1E2209",
+  "contracts": {
+    "MockUSDC": "0x619d67E4765b22dd847144Ac4D39027753d60Eff",
+    "LockVault": "0x531B08Eff2D067E9Bd86212E599457877Fc5D372"
+  },
+  "contractRecords": {
+    "MockUSDC": {
+      "address": "0x619d67E4765b22dd847144Ac4D39027753d60Eff",
+      "constructorArguments": [],
+      "deploymentTransaction": "0xa99c3e0e7df15c5ab91d6d8dc195d30ca0d94aacd7810c4c52fce7e9a125568a",
+      "broadcastReportedTransaction": "0x67407a2c292f5ea2c9e76467e98bed0b81ee4e39733d604b558cda372308cc55",
+      "broadcastHashMatchedReceipt": false,
+      "deploymentBlock": 11639710,
+      "deployedAt": "2026-09-05T10:14:24.000Z",
+      "runtimeCodeHash": "0xf27b70e3bd780a065e7f51d6f38dfc11841d9d99363db6db5e98cbde37a4c930",
+      "artifactCreationCodeHash": "0xce1835f32b8ad4cdec8a4e0c502b22e5ab22dd44a7544dac650a370adb2853d7",
+      "compiler": {
+        "version": "0.8.28+commit.7893614a"
+      },
+      "compilerSettings": {
+        "remappings": [
+          "@gluwa/asc-contracts/=../node_modules/@gluwa/asc-contracts/",
+          "@openzeppelin/contracts/=../node_modules/@openzeppelin/contracts/",
+          "forge-std/=lib/forge-std/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 200
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "compilationTarget": {
+          "src/source/MockUSDC.sol": "MockUSDC"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true
+      },
+      "verificationStatus": "verified",
+      "explorerAddressUrl": "https://eth-sepolia.blockscout.com/address/0x619d67E4765b22dd847144Ac4D39027753d60Eff",
+      "explorerTransactionUrl": "https://eth-sepolia.blockscout.com/tx/0xa99c3e0e7df15c5ab91d6d8dc195d30ca0d94aacd7810c4c52fce7e9a125568a"
+    },
+    "LockVault": {
+      "address": "0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+      "constructorArguments": ["0x619d67E4765b22dd847144Ac4D39027753d60Eff"],
+      "deploymentTransaction": "0x67407a2c292f5ea2c9e76467e98bed0b81ee4e39733d604b558cda372308cc55",
+      "broadcastReportedTransaction": "0xa99c3e0e7df15c5ab91d6d8dc195d30ca0d94aacd7810c4c52fce7e9a125568a",
+      "broadcastHashMatchedReceipt": false,
+      "deploymentBlock": 11639710,
+      "deployedAt": "2026-09-05T10:14:24.000Z",
+      "runtimeCodeHash": "0xc55f00d2e01d62b6c3d6ede353ddbdf5db5eaa7e5ee53c355c87fd5e74c0a0a8",
+      "artifactCreationCodeHash": "0xfd5e19d4a1bf729374412d7e54a4f61dea4768960122e7ca855688fd5aeaaa7f",
+      "compiler": {
+        "version": "0.8.28+commit.7893614a"
+      },
+      "compilerSettings": {
+        "remappings": [
+          "@gluwa/asc-contracts/=../node_modules/@gluwa/asc-contracts/",
+          "@openzeppelin/contracts/=../node_modules/@openzeppelin/contracts/",
+          "forge-std/=lib/forge-std/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 200
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "compilationTarget": {
+          "src/source/LockVault.sol": "LockVault"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true
+      },
+      "verificationStatus": "verified",
+      "explorerAddressUrl": "https://eth-sepolia.blockscout.com/address/0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+      "explorerTransactionUrl": "https://eth-sepolia.blockscout.com/tx/0x67407a2c292f5ea2c9e76467e98bed0b81ee4e39733d604b558cda372308cc55"
+    }
+  },
+  "constructorArguments": {
+    "MockUSDC": [],
+    "LockVault": ["0x619d67E4765b22dd847144Ac4D39027753d60Eff"]
+  },
+  "codeHashes": {
+    "MockUSDC": "0xf27b70e3bd780a065e7f51d6f38dfc11841d9d99363db6db5e98cbde37a4c930",
+    "LockVault": "0xc55f00d2e01d62b6c3d6ede353ddbdf5db5eaa7e5ee53c355c87fd5e74c0a0a8"
+  },
+  "transactions": {
+    "MockUSDC": "0xa99c3e0e7df15c5ab91d6d8dc195d30ca0d94aacd7810c4c52fce7e9a125568a",
+    "LockVault": "0x67407a2c292f5ea2c9e76467e98bed0b81ee4e39733d604b558cda372308cc55"
+  },
+  "explorerUrls": {
+    "MockUSDC": "https://eth-sepolia.blockscout.com/address/0x619d67E4765b22dd847144Ac4D39027753d60Eff",
+    "MockUSDCTransaction": "https://eth-sepolia.blockscout.com/tx/0xa99c3e0e7df15c5ab91d6d8dc195d30ca0d94aacd7810c4c52fce7e9a125568a",
+    "LockVault": "https://eth-sepolia.blockscout.com/address/0x531B08Eff2D067E9Bd86212E599457877Fc5D372",
+    "LockVaultTransaction": "https://eth-sepolia.blockscout.com/tx/0x67407a2c292f5ea2c9e76467e98bed0b81ee4e39733d604b558cda372308cc55"
+  }
+}

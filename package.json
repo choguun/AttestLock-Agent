@@ -26,7 +26,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
     "smoke:production": "node scripts/smoke-production.mjs",
-    "test": "pnpm --filter './packages/**' --filter './apps/**' test && pnpm contracts:test",
+    "test": "node --test scripts/*.test.mjs && pnpm --filter './packages/**' --filter './apps/**' test && pnpm contracts:test",
     "test:e2e": "playwright test",
     "test:web-config": "bash scripts/test-web-production-config.sh",
     "typecheck": "pnpm --filter @attestlock/shared typecheck && pnpm --filter @attestlock/shared build && pnpm --filter './apps/**' typecheck",
@@ -40,6 +40,7 @@
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.3.0",
     "prettier": "^3.6.2",
+    "railway": "3.11.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.42.0"
   }
