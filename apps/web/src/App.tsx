@@ -142,7 +142,7 @@ export default function App() {
   const [walletOption, setWalletOption] = useState('');
   const [sourceReady, setSourceReady] = useState<SourceReadiness | null>(null);
   const sourceAllowed = sourceActions(sourceReady);
-  const recoveredEntries = useRef(new Set<string>());
+  const recoveredEntries = useRef(new Map<string, WalletSession>());
   const sessionRef = useRef<WalletSession | null>(null);
   sessionRef.current = session;
   const walletRevision = useRef(0);
@@ -460,7 +460,7 @@ export default function App() {
 
     for (const entry of entries.filter((candidate) => candidate.status === 'pending')) {
       if (recoveredEntries.current.has(entry.key)) continue;
-      recoveredEntries.current.add(entry.key);
+      recoveredEntries.current.set(entry.key, currentSession);
       if (entry.action === 'queue') {
         recoveredEntries.current.delete(entry.key);
         continue;
@@ -498,12 +498,21 @@ export default function App() {
         } else {
           updateTransaction(entry, 'confirmed');
         }
+        // Receipt finality must not wait for optional balance/profile RPCs.
+        // Otherwise slow reads leave a confirmed transaction visibly pending.
+        setJournal(walletTransactions(currentSession.address));
         if (entry.lockId && currentSession.chainId === config.creditcoinChainId) {
           await refreshCreditState(currentSession, entry.lockId);
         }
         await refreshBalancesFor(currentSession);
       } catch {
-        recoveredEntries.current.delete(entry.key);
+        // The next poll retries a failed read; it never sends a transaction.
+      } finally {
+        // Restoration can replace a session while its receipt read is in flight.
+        // Release that session's claim even on the stale-session early return,
+        // without deleting a newer session's claim after an account switch.
+        if (recoveredEntries.current.get(entry.key) === currentSession)
+          recoveredEntries.current.delete(entry.key);
       }
     }
     if (sessionRef.current === currentSession) setJournal(walletTransactions(currentSession.address));

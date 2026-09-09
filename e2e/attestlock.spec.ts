@@ -48,6 +48,35 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
       let claimed = previous?.claimed ?? false;
       let held = previous?.held ?? hold;
       const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+      let receiptRead: Promise<void> | undefined;
+      let releaseReceiptRead: (() => void) | undefined;
+      const recoveryDrill = {
+        blockedReads: 0,
+        hold() {
+          receiptRead = new Promise<void>((resolve) => {
+            releaseReceiptRead = resolve;
+          });
+        },
+        replaceSession() {
+          for (const listener of listeners.get('accountsChanged') ?? []) listener([account]);
+        },
+        release() {
+          releaseReceiptRead?.();
+          receiptRead = undefined;
+        },
+      };
+      (window as unknown as { __recoveryDrill: typeof recoveryDrill }).__recoveryDrill = recoveryDrill;
+      let creditReads: Promise<void> | undefined;
+      let releaseCreditReads: (() => void) | undefined;
+      (window as unknown as { __holdCreditReads(): void }).__holdCreditReads = () => {
+        creditReads = new Promise<void>((resolve) => {
+          releaseCreditReads = resolve;
+        });
+      };
+      (window as unknown as { __releaseCreditReads(): void }).__releaseCreditReads = () => {
+        releaseCreditReads?.();
+        creditReads = undefined;
+      };
       const transactions = new Map<
         string,
         { from: string; to: string; input: string; nonce: number; mined?: boolean }
@@ -130,6 +159,7 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
           if (method === 'eth_call') {
             const tx = params[0] as { to: string; data: string };
             const call = tx.data.slice(0, 10);
+            if (call === calls.lines || call === calls.profile) await creditReads;
             if (call === calls.lines) return values.line[debt === 0 ? 0 : 1];
             if (call === calls.profile) {
               if (debt === 0 && borrowed > 0) return values.profileRepaid;
@@ -151,6 +181,10 @@ async function installWallet(page: Page, hold = '', initialDebt = 0) {
           }
           if (method === 'eth_getTransactionByHash') return transaction(params[0] as string);
           if (method === 'eth_getTransactionReceipt') {
+            if (receiptRead) {
+              recoveryDrill.blockedReads++;
+              await receiptRead;
+            }
             const hash = params[0] as string;
             const tx = transactions.get(hash)!;
             if (!tx || (held && tx.input.startsWith(held))) return null;
@@ -512,8 +546,41 @@ for (const stage of ['approve', 'lock', 'borrow', 'repay_approve', 'repay'] as c
     await expect(
       page.getByRole('button', { name: stage.startsWith('repay') ? /Repay all|Continue repayment/ : button })
     ).toBeDisabled();
+    if (stage === 'repay_approve')
+      await page.evaluate(() => (window as unknown as { __holdCreditReads(): void }).__holdCreditReads());
+    if (stage === 'borrow') {
+      await page.evaluate(() =>
+        (window as unknown as { __recoveryDrill: { hold(): void } }).__recoveryDrill.hold()
+      );
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              () =>
+                (window as unknown as { __recoveryDrill: { blockedReads: number } }).__recoveryDrill
+                  .blockedReads
+            ),
+          { timeout: 8_000 }
+        )
+        .toBeGreaterThan(0);
+      await page.evaluate(() =>
+        (
+          window as unknown as { __recoveryDrill: { replaceSession(): void } }
+        ).__recoveryDrill.replaceSession()
+      );
+      await expect(page.locator('.notice')).toContainText('Wallet changed');
+      await page.evaluate(() =>
+        (window as unknown as { __recoveryDrill: { release(): void } }).__recoveryDrill.release()
+      );
+    }
     await page.evaluate(() => (window as unknown as { __mine(): void }).__mine());
-    await expect(page.getByText(/A wallet transaction is pending/)).not.toBeVisible({ timeout: 12_000 });
+    await expect(page.getByText(/A wallet transaction is pending/)).not.toBeVisible({
+      timeout: stage === 'repay_approve' ? 6_000 : 12_000,
+    });
+    if (stage === 'repay_approve')
+      await page.evaluate(() =>
+        (window as unknown as { __releaseCreditReads(): void }).__releaseCreditReads()
+      );
     expect(
       await page.evaluate(() => JSON.parse(localStorage.getItem('attestlock.mockchain')!).transactions.length)
     ).toBe(sends);
