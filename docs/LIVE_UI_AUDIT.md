@@ -45,7 +45,7 @@ The appendix described in [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) requires the future
 
 ### Remaining gates
 
-- Full real hosted-browser faucet/approve/lock/proof flow; the original source lock used the local encrypted signer. The existing hosted borrower draw is genuine.
+- Fresh-wallet browser faucet footage remains absent. Browser approval, lock, queue authorization, attestation, native proof and line creation completed in the September 9 run below using previously claimed tokens. The existing hosted borrower draw is genuine; no additional draw was requested.
 - Production browser crash/replacement drill and Railway proxy-boundary confirmation.
 - Repayment after the actual on-chain maturity: **September 12, 2026, 11:21:15 UTC / 18:21:15 Bangkok**.
 - Public 90-second video, uncut technical appendix, and private DoraHacks eligibility/personal fields.
@@ -53,3 +53,16 @@ The appendix described in [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) requires the future
 - Historical research redistribution-rights review; no invented permission or new reuse of copied material.
 
 The internal 88/100 estimate is unchanged by these repairs. Neither 93/100 nor eligibility PASS is claimed; test counts are not market validation and no score guarantees placement.
+
+## September 9 browser onboarding completed
+
+After the read-only refresh above, the user explicitly authorized one 100 mUSDC approval, a 15-day lock and its queue authorization, and handled Rabby signing in Chrome. The earlier no-new-transactions boundary was lifted only for those actions. The deployed release remained `0e68b36`; the recovery patch in PR #10 was not used or deployed for this run.
+
+- [Approval](https://eth-sepolia.blockscout.com/tx/0xd5710c7ec00f59ee64a90d01378e1fd426ec8029d7f185615c9ed38e44dcd40f): successful block 11668917, exactly 100 mUSDC allowance to the configured vault.
+- [Source lock](https://eth-sepolia.blockscout.com/tx/0xc0cd26a96028edf201fa312aabf7cb2999b40d503e30447d65b1cdf3e100fa15): successful block 11668922, exact borrower/token/event and 100 mUSDC; collateral unlocks September 24 at 15:49:09 UTC / 22:49:09 Bangkok.
+- Job `218b4375-b6aa-42f6-a452-febb5a35daf7` was accepted by the signed queue API. A real page reload during attestation waiting restored the same borrower, source hash and job without another signature or duplicate lock.
+- [Native proof](https://creditcoin-testnet.blockscout.com/tx/0xb1c329b7aa85925c145cbcf0ba0eca0064098e7aaca47586495979d038c92924): successful block 5458589, 289980 gas, attested height 11668930, recorded queue-to-execution duration 548527 ms. On-chain calldata decodes to the seven-argument entrypoint with chain key 1; the verifier getter is `0x0FD2`.
+- New lock `0xa014b60206eb1928021bb6749a54a5d4e3ada531331d5356994d2a891705b045` has an exact 50 mUSD limit and zero debt. Its seven-day line matures September 16 at 15:58:30 UTC, **not** September 12. Both replay flags and the expected ASC event were verified.
+- The original line was compared immediately before/after this proof and remained unchanged. Aggregate borrower credit increased by 50 mUSD; borrowed/repaid/outstanding totals did not change. The original September 12 maturity repayment remains pending.
+
+[Sanitized browser-onboarding evidence](../evidence/browser-onboarding-2026-09-09.json) includes successful receipts, calldata/proof tuple, timestamps, event-derived lock fact, job evidence, line and borrower-profile snapshots. No new faucet claim, new draw, repayment, video recording or full submission certification is implied.

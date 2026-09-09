@@ -47,7 +47,7 @@ RPC checks on September 5 confirmed 0.05 Sepolia ETH and 10,000 testnet CTC at t
 4. Completed: Singapore worker/PG, readiness-v2 advancement and current aggregate stats. Proxy boundary verification remains pending; arbitrary forwarded headers stay untrusted.
 5. Completed: web rebuilt with preview disabled, exact live API/addresses and known non-vault refusal hash; production smoke passes.
 6. Completed: unused-query tamper, valid native proof, identical-calldata query replay and unfunded junk refusal, with actual receipt/state evidence.
-7. Completed: hosted borrower-signed 50 mUSD draw and sanitized draw fixture. Still run the whole browser onboarding: the first source faucet/approval/lock used the encrypted local signer.
+7. Completed: hosted borrower-signed 50 mUSD draw and sanitized draw fixture. September 9 also completed Chrome/Rabby approval, a new 100 mUSDC lock, signed queue authorization, attestation, native proof and exact 50 mUSD line, including page-refresh recovery during waiting. See [LIVE_UI_AUDIT.md](LIVE_UI_AUDIT.md). This run used previously claimed faucet tokens and did not draw the new line; fresh browser faucet footage is not claimed.
 8. Actual maturity: **September 12, 2026, 18:21:15 Bangkok**. Post-maturity evidence cannot be manufactured by changing a local clock.
 9. Run the strict evidence command with every required ID/receipt; publish its output as `apps/web/public/evidence/verified.json`.
 10. Refresh the six-slide deck only with verified evidence; record both public videos, disclose time cuts, and test all links logged out.
