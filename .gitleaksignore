@@ -3,3 +3,5 @@
 e227edafd1bc93e2627e604c61d44e29d0a3d8a1:evidence/testnet-origination-inputs-2026-09-05.json:generic-api-key:9
 e227edafd1bc93e2627e604c61d44e29d0a3d8a1:fixtures/proofs/sepolia-lock-2026-09-05.json:generic-api-key:9
 621744bbf3d9a6e3de9df2ce52d25320a81804d5:fixtures/proofs/creditcoin-executed-2026-09-05.json:generic-api-key:10
+# Same public ERC20 address in the verified browser lock event (source.lockFact.token).
+0be74825023363a5ffb3aeb5b65da88ba8f913e9:evidence/browser-onboarding-2026-09-09.json:generic-api-key:38
