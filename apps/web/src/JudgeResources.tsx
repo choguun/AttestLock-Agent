@@ -39,11 +39,14 @@ export function JudgeResources() {
           API and integration ↗
         </a>
         <a
-          href={`${repositoryUrl}/blob/main/docs/deck/AttestLock-Hackathon-Deck-borrow.pdf`}
+          href={`${repositoryUrl}/blob/main/docs/deck/AttestLock-Hackathon-Deck-2026-09-10.pdf`}
           target="_blank"
           rel="noreferrer"
         >
           Six-slide deck (partial evidence) ↗
+        </a>
+        <a href="/media/index.html" target="_blank" rel="noreferrer">
+          90-second evidence overview ↗
         </a>
         <a href="https://ethereum.org/developers/docs/networks/#sepolia" target="_blank" rel="noreferrer">
           Sepolia gas faucets ↗
@@ -58,8 +61,8 @@ export function JudgeResources() {
         )}
       </div>
       <p className="microcopy">
-        Submission video and uncut technical appendix: not published yet. The example below explicitly lists
-        its remaining acceptance gates.
+        The narrated overview uses previously completed transactions, not an uncut signing recording.
+        Submission-demo and technical-appendix acceptance remain pending; the example lists its limits.
       </p>
     </section>
   );

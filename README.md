@@ -4,7 +4,7 @@
 
 AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
 
-> Current status: all five contracts are publicly verified. A real 100 mUSDC lock opened exactly 50 mUSD of credit through native `0x0FD2`; the Railway relayer submitted the proof, and the borrower subsequently drew 50 mUSD through the hosted app and Rabby. Junk refusal, unused-query tamper and identical-query replay are recorded. Scheduled production smoke passed on release `b7e71f2`. Full browser onboarding, post-maturity repayment and public videos remain acceptance gates. See [live observations](docs/LIVE_TESTNET.md), the [claim-to-evidence ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
+> Current status: all five contracts are publicly verified. A real 100 mUSDC lock opened 50 mUSD through native `0x0FD2`, followed by a borrower-signed draw. September 9 added a Chrome/Rabby approval, new lock, signed queue, refresh recovery and second native line; no draw on that second line is claimed. Junk refusal, unused-query tamper and identical-query replay are recorded. Post-maturity repayment, final live-demo/uncut videos and submission acceptance remain gated. See [live observations](docs/LIVE_TESTNET.md), the [claim ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
 
 **Live testnet app:** https://attestlock-web-production.up.railway.app
 
@@ -175,8 +175,9 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 - [Competitive positioning](docs/COMPETITIVE.md)
 - [Five-minute onboarding](docs/ONBOARDING.md)
 - [90-second video script](docs/VIDEO_SCRIPT.md)
-- [Six-slide proof-and-draw deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck-borrow.pptx)
-- [Visually verified proof-and-draw deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-borrow.pdf)
+- [September 10 six-slide evidence deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck-2026-09-10.pptx)
+- [Visually verified evidence deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-2026-09-10.pdf)
+- [90-second edited evidence overview and transcript](https://attestlock-web-production.up.railway.app/media/index.html) — synthetic narration; not an uncut signing recording.
 
 ## Hackathon timing
 

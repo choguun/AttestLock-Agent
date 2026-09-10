@@ -1,8 +1,9 @@
 import { attestLockAscAbi, creditPoolAbi } from '@attestlock/shared';
-import { Contract, Interface } from 'ethers';
+import { Contract, Interface, type JsonRpcProvider } from 'ethers';
 import { describe, expect, it, vi } from 'vitest';
 import {
   aggregatePoolEvents,
+  createPoolStatsReader,
   ascRefusalCode,
   executionStateMatches,
   getLogsInRanges,
@@ -15,6 +16,80 @@ const lockId = `0x${'11'.repeat(32)}`;
 const queryId = `0x${'22'.repeat(32)}`;
 
 describe('CreditcoinSubmitter helpers', () => {
+  it('advances a canonical event checkpoint without rescanning or duplicating past activity', async () => {
+    const pool = new Contract(poolAddress, creditPoolAbi);
+    const opened = pool.interface.encodeEventLog('CreditLineOpened', [
+      lockId,
+      borrower,
+      50_000_000n,
+      100,
+      queryId,
+    ]);
+    let head = 110;
+    const getBlock = vi.fn(async (tag) => ({
+      number: tag === 'latest' ? head : tag,
+      hash: `block-${tag === 'latest' ? head : tag}`,
+    }));
+    const getLogs = vi.fn().mockResolvedValueOnce([opened]).mockResolvedValue([]);
+    const read = createPoolStatsReader(pool, { getBlock, getLogs } as unknown as JsonRpcProvider, 100);
+    expect(await read()).toMatchObject({ linesOpened: 1, asOfBlock: 110 });
+    head = 115;
+    expect(await read()).toMatchObject({ linesOpened: 1, asOfBlock: 115 });
+    expect(getLogs.mock.calls.map(([filter]) => [filter.fromBlock, filter.toBlock])).toEqual([
+      [100, 110],
+      [111, 115],
+    ]);
+    expect(await read()).toMatchObject({ linesOpened: 1, asOfBlock: 115 });
+    expect(getLogs).toHaveBeenCalledTimes(2);
+  });
+
+  it('rebuilds after a checkpoint reorg and never substitutes cached success for RPC failure', async () => {
+    let reorg = false;
+    const getBlock = vi.fn(async (tag) => ({
+      number: tag === 'latest' ? 110 : tag,
+      hash: reorg ? 'new' : 'old',
+    }));
+    const getLogs = vi.fn().mockResolvedValue([]);
+    const read = createPoolStatsReader(
+      new Contract(poolAddress, creditPoolAbi),
+      { getBlock, getLogs } as unknown as JsonRpcProvider,
+      100
+    );
+    await read();
+    reorg = true;
+    await read();
+    expect(getLogs.mock.calls.map(([filter]) => filter.fromBlock)).toEqual([100, 100]);
+    getBlock.mockRejectedValueOnce(new Error('RPC unavailable'));
+    await expect(read()).rejects.toThrow('RPC unavailable');
+    expect(await read()).toMatchObject({ asOfBlock: 110 });
+  });
+
+  it('shares in-flight scans and refuses an observation whose head changes', async () => {
+    let release!: (value: never[]) => void;
+    const getLogs = vi.fn(
+      () =>
+        new Promise<never[]>((resolve) => {
+          release = resolve;
+        })
+    );
+    const getBlock = vi
+      .fn()
+      .mockResolvedValueOnce({ number: 110, hash: 'old' })
+      .mockResolvedValue({ number: 110, hash: 'new' });
+    const read = createPoolStatsReader(
+      new Contract(poolAddress, creditPoolAbi),
+      { getBlock, getLogs } as unknown as JsonRpcProvider,
+      100
+    );
+    const first = read(),
+      second = read();
+    expect(first).toBe(second);
+    await vi.waitFor(() => expect(getLogs).toHaveBeenCalledTimes(1));
+    release([]);
+    await expect(first).rejects.toThrow('head changed');
+    await expect(second).rejects.toThrow('head changed');
+  });
+
   it('classifies the observed native inclusion failure without exposing arbitrary revert text', () => {
     const contract = new Contract(poolAddress, attestLockAscAbi);
     expect(

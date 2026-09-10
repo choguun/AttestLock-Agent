@@ -2,6 +2,8 @@
 
 Draft narration only. Record after live evidence exists. Label time cuts and previously completed examples on screen; attestation is not guaranteed to finish within this runtime.
 
+September 10 adds an [edited evidence overview](https://attestlock-web-production.up.railway.app/media/index.html) with synthetic narration, captions and transcript. It uses the visually checked deck and previously completed receipts, not signing footage. It does not satisfy the live-demo pass criteria below or the uncut appendix. September 9 browser onboarding is genuine and documented in LIVE_UI_AUDIT; do not imply that the September 5 draw belongs to its new line.
+
 The September 5 reference has a real source lock and hosted borrower draw, but its source actions were signed locally. Do not present those source transactions as a recorded browser flow. The script below is for a new browser walkthrough (the UI requests a 15-day lock); the existing reference lock used 14 days plus approximately one hour. Show the actual dates/transaction hashes if using that previous example instead. Its maturity is September 12 at 11:21:15 UTC; repayment footage cannot precede that timestamp.
 
 **0:00–0:10**

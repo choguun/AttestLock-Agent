@@ -265,6 +265,29 @@ describe('worker API', () => {
     ).toBe(429);
   });
 
+  it('shares the safety quota across rotating unverified ingress peers without limiting probes', async () => {
+    const app = await buildServer(
+      new MemoryJobStore(),
+      { ...config, MAX_REQUESTS_PER_MINUTE: 2 },
+      new InMemoryJobEvents()
+    );
+    apps.push(app);
+    for (const [index, expected] of [200, 200, 429].entries()) {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/stats',
+        remoteAddress: `10.42.0.${index + 1}`,
+        headers: {
+          'x-forwarded-for': `192.0.2.${index + 1}`,
+          'x-real-ip': `198.51.100.${index + 1}`,
+        },
+      });
+      expect(response.statusCode).toBe(expected);
+    }
+    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(503);
+  });
+
   it('rejects malformed and expired authorization requests', async () => {
     const store = new MemoryJobStore();
     const app = await buildServer(store, config, new InMemoryJobEvents());

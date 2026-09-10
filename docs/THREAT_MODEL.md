@@ -39,7 +39,7 @@ A production design requires Attestcoin writability or another authenticated sou
 
 - Signed outbox transactions are private operational data, never API evidence. A party with database access could broadcast the already-authorized proof, but cannot change its signed calldata.
 - Cleared browser storage or an unavailable legacy transaction identity can require manual explorer recovery; unknown pending work is not automatically rebroadcast.
-- Railway proxy CIDRs must be verified before enabling forwarded-IP trust. The default does not trust arbitrary headers; it can conservatively share a quota across an ingress proxy.
+- Railway proxy CIDRs must be verified before enabling forwarded-IP trust. With no pinned boundary, the default uses one conservative shared public-request quota per worker replica, independent of rotating socket peers or client headers. This limits availability for all clients when exhausted; it is not a verified per-client-IP quota. Health/readiness are excluded. Production remains one replica; scaling requires a distributed quota store. EIP-712 authorization and transactional daily wallet quotas independently protect funded work.
 - Dependency readiness does not prove chain finality, solvency, liquidation, or permanent RPC availability.
 
 ## Key handling

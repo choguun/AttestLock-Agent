@@ -107,6 +107,9 @@ export async function buildServer(
   await app.register(rateLimit, {
     max: config.MAX_REQUESTS_PER_MINUTE,
     timeWindow: '1 minute',
+    // Rotating ingress peers must not reset the quota. Until the proxy boundary
+    // is explicitly pinned, use a conservative shared bucket, never client headers.
+    keyGenerator: trustedProxyCidrs?.length ? (request) => request.ip : () => 'unverified-ingress',
   });
 
   app.setErrorHandler((error, _request, reply) => {

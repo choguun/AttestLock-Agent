@@ -167,9 +167,39 @@ type ProofArguments = readonly [
   readonly string[],
 ];
 
+export function createPoolStatsReader(pool: Contract, provider: JsonRpcProvider, deploymentBlock: number) {
+  let checkpoint: { number: number; hash: string; logs: Log[] } | null = null;
+  let pending: Promise<ProtocolStats & { asOfBlock: number }> | null = null;
+  return () => {
+    if (pending) return pending;
+    pending = (async () => {
+      const latest = await provider.getBlock('latest');
+      if (!latest?.hash) throw new Error('Protocol head unavailable');
+      const previous = checkpoint;
+      const canonical =
+        previous && latest.number >= previous.number ? await provider.getBlock(previous.number) : null;
+      const reusable = previous && canonical?.hash === previous.hash;
+      const from = reusable ? previous.number + 1 : deploymentBlock;
+      const appended = await getLogsInRanges(provider, { address: String(pool.target) }, from, latest.number);
+      const confirmed = await provider.getBlock(latest.number);
+      if (confirmed?.hash !== latest.hash) throw new Error('Protocol head changed during observation');
+      const logs = [...(reusable ? previous.logs : []), ...appended];
+      const result = { ...aggregatePoolEvents(pool, logs), asOfBlock: latest.number };
+      // A slow initial scan can finish after the HTTP deadline and still warm this
+      // private checkpoint. Every later read revalidates its canonical block hash.
+      checkpoint = { number: latest.number, hash: latest.hash, logs };
+      return result;
+    })().finally(() => {
+      pending = null;
+    });
+    return pending;
+  };
+}
+
 export class CreditcoinSubmitter {
   private readonly asc: Contract;
   private readonly pool: Contract;
+  private readonly readPoolStats: ReturnType<typeof createPoolStatsReader>;
 
   constructor(
     private readonly config: WorkerConfig,
@@ -179,6 +209,7 @@ export class CreditcoinSubmitter {
   ) {
     this.asc = new Contract(config.ATTESTLOCK_ASC_ADDRESS, attestLockAscAbi, wallet);
     this.pool = new Contract(config.CREDIT_POOL_ADDRESS, creditPoolAbi, provider);
+    this.readPoolStats = createPoolStatsReader(this.pool, provider, config.CREDITCOIN_DEPLOYMENT_BLOCK);
   }
 
   async submit(
@@ -279,14 +310,7 @@ export class CreditcoinSubmitter {
   }
 
   async publicStats(): Promise<ProtocolStats & { asOfBlock: number }> {
-    const latest = await this.provider.getBlockNumber();
-    const logs = await getLogsInRanges(
-      this.provider,
-      { address: this.config.CREDIT_POOL_ADDRESS },
-      this.config.CREDITCOIN_DEPLOYMENT_BLOCK,
-      latest
-    );
-    return { ...aggregatePoolEvents(this.pool, logs), asOfBlock: latest };
+    return this.readPoolStats();
   }
 
   private async findExistingExecution(lockId: string): Promise<JobEvidence | null> {

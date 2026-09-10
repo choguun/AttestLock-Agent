@@ -435,6 +435,24 @@ test('preview mode fails closed without deployments', async ({ page }) => {
   await expect(page.getByLabel('Public protocol activity')).toContainText('—');
 });
 
+test('evidence overview is playable, captioned and explicit about unfinished gates', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4174/media/index.html');
+  await expect(page.getByRole('heading', { name: 'Collateral stays. Credit follows proof.' })).toBeVisible();
+  await expect(page.locator('.notice')).toContainText('not an uncut wallet-signing recording');
+  const video = page.locator('video');
+  await expect(video.locator('track')).toHaveAttribute('kind', 'captions');
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.duration)).toBeCloseTo(90, 1);
+  await video.evaluate((element: HTMLVideoElement) => {
+    element.muted = true;
+    return element.play();
+  });
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+    .toBeGreaterThan(0);
+  await expect(page.getByRole('heading', { name: 'Transcript' })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
 test('mocked judge path remains wallet-signed and exposes evidence', async ({ page }) => {
   await installWallet(page);
   await mockApi(page);

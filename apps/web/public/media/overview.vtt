@@ -1,0 +1,82 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.027
+AttestLock turns an Ethereum escrow receipt into a Creditcoin credit line.
+
+00:00:04.027 --> 00:00:05.550
+Collateral stays on Sepolia.
+
+00:00:05.550 --> 00:00:07.292
+Creditcoin acts only on a proof.
+
+00:00:07.292 --> 00:00:13.223
+This narrated overview shows previously completed testnet transactions, not an uninterrupted signing session.
+
+00:00:13.223 --> 00:00:17.202
+For lending and risk teams, collateral reporting is a critical trust boundary.
+
+00:00:17.202 --> 00:00:21.742
+AttestLock verifies a successful escrow receipt instead of accepting an operator's claim.
+
+00:00:21.742 --> 00:00:25.721
+It is a fixed-term origination reference, not a production liquidation system.
+
+00:00:25.721 --> 00:00:27.328
+The borrower locks mock USDC.
+
+00:00:27.328 --> 00:00:30.875
+The worker waits for attestation and obtains the official proof.
+
+00:00:30.875 --> 00:00:33.313
+Creditcoin's native BlockProver verifies it.
+
+00:00:33.313 --> 00:00:38.799
+The contract checks the exact vault, token, borrower, amount, remaining term, and both replay keys.
+
+00:00:38.799 --> 00:00:41.736
+Only then can a seven-day line open at fifty percent.
+
+00:00:41.736 --> 00:00:43.158
+Invalid paths stay closed.
+
+00:00:43.158 --> 00:00:44.854
+A junk transaction was refused.
+
+00:00:44.854 --> 00:00:47.754
+A tampered proof reverted while its query was unused.
+
+00:00:47.754 --> 00:00:51.803
+Replaying the valid query also reverted, with destination state unchanged.
+
+00:00:51.803 --> 00:00:53.718
+The worker never draws user credit.
+
+00:00:53.718 --> 00:00:59.216
+On September ninth, Chrome and Rabby completed approval, a hundred-token lock, and signed authorization.
+
+00:00:59.216 --> 00:01:01.384
+A page refresh recovered the waiting job.
+
+00:01:01.384 --> 00:01:05.560
+The native proof took two hundred eighty-nine thousand nine hundred eighty gas.
+
+00:01:05.560 --> 00:01:09.525
+Queue to execution, including attestation waiting, took about nine minutes.
+
+00:01:09.525 --> 00:01:14.601
+Two lines now record a hundred in opened credit; fifty borrowed, zero repaid, fifty outstanding.
+
+00:01:14.601 --> 00:01:17.206
+The earlier fifty-token draw was borrower-signed.
+
+00:01:17.206 --> 00:01:20.609
+Post-maturity repayment remains pending until September twelfth.
+
+00:01:20.609 --> 00:01:21.992
+Mock assets have no value.
+
+00:01:21.992 --> 00:01:25.341
+There is no interest, liquidation, or trustless source release.
+
+00:01:25.341 --> 00:01:28.000
+Open the public evidence and reproduce the checks.
