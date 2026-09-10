@@ -56,7 +56,8 @@ Policy failures terminate in `refused`. Exhausted infrastructure retries termina
 - SSE gives the browser immediate updates; REST remains the recovery path.
 - `/ready` schema version 2 fails unless database, both RPCs, all deployed bytecode and immutable/one-time bindings, Sepolia ChainInfo registration, an observed height advance within the freshness window, ProofBuilder, and relayer funding pass. Its first height observation is intentionally not enough.
 - `/api/stats` exposes aggregate counts without wallet lists. RPC failure returns the last snapshot as `stale`, or nullable fields as `unavailable`; `protocolObservedAt` and `asOfBlock` identify the observation.
-- Readiness probes run independently with bounded timeouts, single-flight caching, and background sampling. Health probes bypass public quotas. SSE connections are bounded; proxy forwarding is trusted only for explicitly verified CIDRs.
+- Readiness probes run independently with bounded timeouts, single-flight caching, and background sampling. Health probes bypass public quotas. SSE connections are bounded; proxy forwarding is trusted only for explicitly verified CIDRs. Without a pinned boundary, one shared public-request bucket prevents rotating ingress peers from resetting limits; this conservative single-replica fallback is not per-client-IP isolation.
+- Aggregate chain events use a private in-memory, block-hash-validated checkpoint. Later observations scan only new blocks; a changed canonical checkpoint rebuilds from deployment. Concurrent scans share one promise. A slow first scan may warm the checkpoint after the HTTP deadline, but failures still return stale/null public metrics rather than inventing activity or changing the observation time.
 - The implemented six-hour production smoke (inactive until live configuration is enabled) checks hosted endpoints, CORS, chain IDs, bytecode, native ChainInfo, relayer funding, and contract bindings.
 
 ## Creditcoin borrower profile

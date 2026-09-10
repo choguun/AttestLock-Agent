@@ -45,6 +45,14 @@ Audit date: September 5, 2026. Scope: all 17 Markdown files tracked at baseline 
 
 ## Release reconciliation
 
+### September 10 superseding observations
+
+The table above is the September 5 baseline, not a current-release certificate. [Browser evidence](../evidence/browser-onboarding-2026-09-09.json) now establishes Chrome/Rabby approval, a new lock, signed authorization, refresh during attestation, and a second native line. Faucet tokens were previously claimed; the existing draw belongs to the first line. Current profile: two lines, 100 mUSD credit opened, 50 borrowed, zero repaid, 50 outstanding. One operator wallet remains one operator wallet, not market validation.
+
+PR #10 merged as `44b989fbea0a96f9ceca240b70c32eba8da7bfd0`; [main CI 34472071485](https://github.com/choguun/AttestLock-Agent/actions/runs/34472071485) passed. Both Railway services were released to that SHA on September 10. The September 10 PDF/PPTX supersedes earlier deck drafts; its native table and all six rendered slides were checked. The edited 90-second overview uses synthetic narration and is not the live-demo/uncut-recording gate. Later release checks must be tied to their own SHA.
+
+The live proxy probe found rotating socket peers; unverified per-socket quotas cannot be described as reliable client-IP limits. The fallback now shares one quota across those peers. Only explicitly pinned trusted CIDRs enable per-IP bucketing. Its limits and rollout evidence belong in LIVE_UI_AUDIT; no arbitrary header trust is enabled.
+
 The September 5 [live UI audit remediation](LIVE_UI_AUDIT.md) supersedes earlier assumptions that the terminal timeline, mobile proof rendering, global injected-provider selection, source-button eligibility, or frontend metric freshness were complete. The repairs are backed by the named local unit/browser tests; production confirmation is separately recorded in the PR receipt. Protocol and borrower evidence did not change, and the internal score is not increased merely for fixing these faults.
 
 Use the exact implementation SHA, CI run, deployment provenance and evidence timestamp in [EVIDENCE.md](EVIDENCE.md). If a code change invalidates a test or an observed endpoint stops working, downgrade the corresponding row. Five-minute setup, 90-second recording, and seven-day maturity are different clocks. Final eligibility requires public native execution and media, not just a green table.

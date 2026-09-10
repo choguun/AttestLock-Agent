@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AttestLock — evidence overview</title>
+    <style>
+      body {
+        max-width: 960px;
+        margin: 3rem auto;
+        padding: 0 1.25rem;
+        font:
+          18px/1.6 system-ui,
+          sans-serif;
+        color: #17212e;
+        background: #fff;
+      }
+      a {
+        color: #155cc4;
+        overflow-wrap: anywhere;
+      }
+      video {
+        width: 100%;
+        border: 1px solid #cad3df;
+        border-radius: 12px;
+      }
+      .notice {
+        padding: 1rem;
+        background: #f2f6fb;
+        border-left: 4px solid #3984ff;
+      }
+      h1,
+      h2 {
+        line-height: 1.2;
+      }
+      :focus-visible {
+        outline: 3px solid #3984ff;
+        outline-offset: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/">← AttestLock live app</a>
+      <h1>Collateral stays. Credit follows proof.</h1>
+    </header>
+    <main>
+      <p class="notice">
+        90-second edited evidence overview, prepared September 10, 2026. Synthetic narration and presentation
+        slides describe previously completed testnet transactions. This is
+        <strong>not an uncut wallet-signing recording</strong> or proof of submission eligibility.
+        Post-maturity repayment is still pending.
+      </p>
+      <video
+        controls
+        preload="metadata"
+        poster="overview-poster.png"
+        aria-label="AttestLock 90-second narrated evidence overview"
+      >
+        <source src="attestlock-evidence-overview.webm" type="video/webm" />
+        <source src="attestlock-evidence-overview.mp4" type="video/mp4" />
+        <track default kind="captions" src="overview.vtt" srclang="en" label="English" />
+        <a href="attestlock-evidence-overview.mp4">Download the video</a>
+      </video>
+      <p>
+        <a href="attestlock-evidence-overview.mp4" download>Download MP4</a> ·
+        <a href="overview.vtt">English captions</a> ·
+        <a
+          href="https://github.com/choguun/AttestLock-Agent/blob/main/docs/deck/AttestLock-Hackathon-Deck-2026-09-10.pdf"
+          >Six-slide PDF</a
+        >
+      </p>
+      <h2>Inspect the actual evidence</h2>
+      <ul>
+        <li>
+          <a
+            href="https://eth-sepolia.blockscout.com/tx/0xc0cd26a96028edf201fa312aabf7cb2999b40d503e30447d65b1cdf3e100fa15"
+            >September 9 browser-signed 100 mUSDC lock</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://creditcoin-testnet.blockscout.com/tx/0xb1c329b7aa85925c145cbcf0ba0eca0064098e7aaca47586495979d038c92924"
+            >September 9 native proof opening the second 50 mUSD line</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4"
+            >September 5 borrower-signed draw on the original line</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://github.com/choguun/AttestLock-Agent/blob/main/evidence/browser-onboarding-2026-09-09.json"
+            >Sanitized proof tuple, query ID, lock ID, receipts and borrower profile</a
+          >
+        </li>
+        <li>
+          <a href="https://github.com/choguun/AttestLock-Agent/blob/main/docs/LIVE_TESTNET.md"
+            >Unused-query tamper, replay rejection and state-invariance evidence</a
+          >
+        </li>
+      </ul>
+      <p>
+        The new line was not drawn. The original line matures September 12 at 11:21:15 UTC (18:21:15 Bangkok);
+        the new line matures September 16 at 15:58:30 UTC. Do not confuse their repayment gates. One demo
+        borrower is not independent adoption.
+      </p>
+      <h2>Transcript</h2>
+      <p>
+        AttestLock turns an Ethereum escrow receipt into a Creditcoin credit line. Collateral stays on
+        Sepolia. Creditcoin acts only on a proof. This narrated overview shows previously completed testnet
+        transactions, not an uninterrupted signing session.
+      </p>
+      <p>
+        For lending and risk teams, collateral reporting is a critical trust boundary. AttestLock verifies a
+        successful escrow receipt instead of accepting an operator's claim. It is a fixed-term origination
+        reference, not a production liquidation system.
+      </p>
+      <p>
+        The borrower locks mock USDC. The worker waits for attestation and obtains the official proof.
+        Creditcoin's native BlockProver verifies it. The contract checks the exact vault, token, borrower,
+        amount, remaining term, and both replay keys. Only then can a seven-day line open at fifty percent.
+      </p>
+      <p>
+        Invalid paths stay closed. A junk transaction was refused. A tampered proof reverted while its query
+        was unused. Replaying the valid query also reverted, with destination state unchanged. The worker
+        never draws user credit.
+      </p>
+      <p>
+        On September ninth, Chrome and Rabby completed approval, a hundred-token lock, and signed
+        authorization. A page refresh recovered the waiting job. The native proof took 289,980 gas. Queue to
+        execution, including attestation waiting, took about nine minutes. Two lines now record a hundred in
+        opened credit; fifty borrowed, zero repaid, fifty outstanding.
+      </p>
+      <p>
+        The earlier fifty-token draw was borrower-signed. Post-maturity repayment remains pending until
+        September twelfth. Mock assets have no value. There is no interest, liquidation, or trustless source
+        release. Open the public evidence and reproduce the checks.
+      </p>
+    </main>
+  </body>
+</html>

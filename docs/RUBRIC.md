@@ -1,15 +1,15 @@
 # Rubric and eligibility ledger
 
-This is an internal equal-weight planning model of five AMA pillars, not organizer scoring or a prediction of winning. Audit baseline: clean main `002546f`, September 5, 2026. Updated observation: native origination, borrower-signed draw and successful scheduled smoke on Railway release `b7e71f2`; local hardening does not automatically earn live-delivery points.
+This is an internal equal-weight planning model of five AMA pillars, not organizer scoring or a prediction of winning. Audit baseline: clean main `002546f`, September 5, 2026. September 10 update: two native lines, September 9 Chrome/Rabby onboarding and refresh recovery, prior borrower draw, and the dated release observations in LIVE_UI_AUDIT. Local hardening and a narrated slide overview do not automatically earn live-delivery points.
 
-| Pillar                       |   Baseline | Evidence-adjusted now |     Target | Basis and remaining gap                                                                                                                               |
-| ---------------------------- | ---------: | --------------------: | ---------: | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Userbase Expansion           |         13 |                    14 |         16 | Live app/aggregate endpoint and onboarding; no independent users or completed browser onboarding evidence yet                                         |
-| Technical Alignment          |         18 |                    20 |         20 | Five verified contracts, successful native `0x0FD2`, real executed tuple, bindings, fail-closed native rejection                                      |
-| Product Vision & Innovation  |         17 |                    19 |         19 | Real bounded line, borrower-controlled draw, token movement and reusable profile accounting; post-maturity repayment still pending                    |
-| Execution Capability         |         16 |                    18 |         20 | Green CI, live worker/web, native proof, browser draw, negative receipts and scheduled smoke; full browser onboarding, maturity and media still gated |
-| Market & Technical Relevance |         16 |                    17 |         18 | Attributed primary-source competitor/strategy research and observable operator activity; no interviews, pilots or validated adoption                  |
-| **Total**                    | **80/100** |            **88/100** | **93/100** | Actual draw earns one product point; future gates do not                                                                                              |
+| Pillar                       |   Baseline | Evidence-adjusted now |     Target | Basis and remaining gap                                                                                                                       |
+| ---------------------------- | ---------: | --------------------: | ---------: | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Userbase Expansion           |         13 |                    14 |         16 | Live app, aggregate endpoint and real browser onboarding; no independent users or adoption validation                                         |
+| Technical Alignment          |         18 |                    20 |         20 | Five verified contracts, successful native `0x0FD2`, real executed tuple, bindings, fail-closed native rejection                              |
+| Product Vision & Innovation  |         17 |                    19 |         19 | Real bounded line, borrower-controlled draw, token movement and reusable profile accounting; post-maturity repayment still pending            |
+| Execution Capability         |         16 |                    18 |         20 | Green CI, hosting, browser onboarding/draw, native proof and negative receipts; maturity, final recordings and operational drills still gated |
+| Market & Technical Relevance |         16 |                    17 |         18 | Attributed primary-source competitor/strategy research and observable operator activity; no interviews, pilots or validated adoption          |
+| **Total**                    | **80/100** |            **88/100** | **93/100** | Actual draw earns one product point; future gates do not                                                                                      |
 
 The earlier preview-only 87/100 claim was withdrawn. Native origination and healthy hosting subsequently supported a distinct 87/100 estimate; the verified borrower draw moves that internal estimate to 88/100. It is still below the target, and no score guarantees placement. See [the dated live ledger](LIVE_TESTNET.md). Test-count increases alone do not earn points, and one operator wallet is not adoption validation.
 

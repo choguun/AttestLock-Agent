@@ -18,7 +18,7 @@ Bridge-based collateral movement and operator-reported collateral introduce cust
 ## Product contribution (not a claim of unique invention)
 
 - Attestcoin is a hard credit gate rather than a decorative data widget.
-- Verified native origination, borrower draw and negative-path receipts are linked below; full browser onboarding and the public video are still pending.
+- Verified native origination, borrower draw and negative-path receipts are linked below. September 9 browser onboarding is recorded in the evidence ledger; the final live-demo video remains pending.
 - The autonomous worker is operational infrastructure, not a discretionary lender.
 - Credit lines are useful only after proof, while borrowing remains user-controlled.
 - Each proof-opened line and real draw or repayment updates a compact, reusable Creditcoin borrower profile without issuing a transferable credential.
@@ -37,18 +37,19 @@ Testnet only. Mock assets have no value. V1 has no interest, liquidation, or tru
 
 ## Required links
 
-| Field                    | URL                                                                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Public repository        | https://github.com/choguun/AttestLock-Agent                                                                                                                                                                  |
-| Hosted demo              | https://attestlock-web-production.up.railway.app                                                                                                                                                             |
-| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                                                                                                                               |
-| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                                                                                                                                             |
-| Demo video               | Pending live evidence recording                                                                                                                                                                              |
-| Technical appendix video | Pending uncut live evidence recording                                                                                                                                                                        |
-| Slide deck PDF           | [Visually checked proof-and-draw PDF at immutable artifact commit](https://github.com/choguun/AttestLock-Agent/blob/71b148e1c169ea9446903c625b9ccf76208f647d/docs/deck/AttestLock-Hackathon-Deck-borrow.pdf) |
-| Sepolia lock             | [100 mUSDC source lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)                                                                            |
-| Creditcoin proof         | [Native proof opens 50 mUSD](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9)                                                                |
-| Creditcoin borrow        | [Borrower-signed 50 mUSD draw](https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4)                                                              |
+| Field                    | URL                                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public repository        | https://github.com/choguun/AttestLock-Agent                                                                                                     |
+| Hosted demo              | https://attestlock-web-production.up.railway.app                                                                                                |
+| Five-minute setup        | [ONBOARDING.md](ONBOARDING.md)                                                                                                                  |
+| Competitor matrix        | [COMPETITIVE.md](COMPETITIVE.md)                                                                                                                |
+| Demo video               | Pending live evidence recording                                                                                                                 |
+| Technical appendix video | Pending uncut live evidence recording                                                                                                           |
+| Edited evidence overview | https://attestlock-web-production.up.railway.app/media/index.html — synthetic narration, not the final prototype recording                      |
+| Slide deck PDF           | [Visually checked September 10 evidence PDF](deck/AttestLock-Hackathon-Deck-2026-09-10.pdf)                                                     |
+| Sepolia lock             | [100 mUSDC source lock](https://eth-sepolia.blockscout.com/tx/0xf93882f35ac789132fbe46205d699fbbb01b254862b0624e3ea20f4d11491b8f)               |
+| Creditcoin proof         | [Native proof opens 50 mUSD](https://creditcoin-testnet.blockscout.com/tx/0xa064d130e0aaaa4e6068e0cb2bb3f50d46bc531a004273d8dc28827ff91a05d9)   |
+| Creditcoin borrow        | [Borrower-signed 50 mUSD draw](https://creditcoin-testnet.blockscout.com/tx/0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4) |
 
 ## Team information
 

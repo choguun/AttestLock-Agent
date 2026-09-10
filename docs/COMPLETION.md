@@ -4,6 +4,8 @@ Audit branch merged through [PR #4](https://github.com/choguun/AttestLock-Agent/
 
 ## Local implementation
 
+September 10: PR #10 is merged and its recovery fixes are deployed on `44b989f`; exact CI/deployment observations and the newly discovered ingress-quota gap are recorded in [LIVE_UI_AUDIT.md](LIVE_UI_AUDIT.md). The new narrated overview is an evidence aid, not a substitute for the final browser-demo or uncut appendix.
+
 - [x] Wallet/transaction uniqueness, migration serialization and collision reports.
 - [x] Guard before async claim, renewable leases and fencing.
 - [x] Receipt-first recovery, per-relayer serialization, signed outbox before broadcast.

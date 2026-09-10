@@ -2,7 +2,7 @@
 
 AttestLock's first user is a Creditcoin testnet lending or risk team that needs a bounded credit decision from a collateral fact on another chain without bridge custody.
 
-Five minutes is a setup target, not an end-to-end latency guarantee. Faucet, wallet, attestation, and proof-builder delays vary. The hosted app now has verified live addresses and a healthy worker; the complete real browser-wallet path remains separately tracked in [LIVE_TESTNET.md](LIVE_TESTNET.md).
+Five minutes is a setup target, not an end-to-end latency guarantee. Faucet, wallet, attestation, and proof-builder delays vary. Chrome/Rabby approval, lock, signed queue and native line creation were observed September 9, with previously claimed faucet tokens. The prior draw belongs to the September 5 line. Maturity repayment and final recordings remain separately tracked in [LIVE_TESTNET.md](LIVE_TESTNET.md).
 
 ## Borrower path
 
