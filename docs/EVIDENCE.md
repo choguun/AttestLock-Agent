@@ -1,5 +1,13 @@
 # Live evidence gate
 
+## September 10 update (supersedes older release summaries below)
+
+September 9 Chrome/Rabby approval, new 100 mUSDC lock, signed queue authorization, attestation-wait refresh and second native line are recorded in [the browser fixture](../evidence/browser-onboarding-2026-09-09.json). The original draw remains a separate September 5 transaction. The first line's post-maturity repayment is still pending until September 12 at 11:21:15 UTC.
+
+PR #10 merged and deployed on `44b989f`; [main CI](https://github.com/choguun/AttestLock-Agent/actions/runs/34472071485) passed. Exact deployment IDs, idle-worker persistence, the failed statistics smoke and the subsequent quota/checkpoint remediations are in [LIVE_UI_AUDIT.md](LIVE_UI_AUDIT.md). Follow-up local verification passed 149 tests with PostgreSQL and zero skips, plus 16 browser tests including actual media playback and accessibility. CI and production acceptance must still be attached to the follow-up commit.
+
+The active deck is the [September 10 PDF](deck/AttestLock-Hackathon-Deck-2026-09-10.pdf) and [PPTX](deck/AttestLock-Hackathon-Deck-2026-09-10.pptx), visually checked on all six slides. [MEDIA.md](MEDIA.md) distinguishes the 90-second narrated evidence overview from the still-pending live-demo and uncut appendix. No 93/100 or eligibility PASS is claimed.
+
 A build, mock proof, faucet transfer, or polished preview is not deployed AttestLock integration.
 
 ## Live UI follow-up — September 5, 2026
