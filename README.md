@@ -167,17 +167,9 @@ See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshi
 
 - [Attestcoin integration](docs/ATTESTCOIN.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Demo runbook](docs/DEMO.md)
-- [Live evidence gate](docs/EVIDENCE.md)
-- [Submission draft](docs/SUBMISSION.md)
-- [Rubric and eligibility ledger](docs/RUBRIC.md)
 - [Market and ecosystem thesis](docs/MARKET.md)
 - [Competitive positioning](docs/COMPETITIVE.md)
-- [Five-minute onboarding](docs/ONBOARDING.md)
-- [90-second video script](docs/VIDEO_SCRIPT.md)
-- [September 10 six-slide evidence deck (PPTX)](docs/deck/AttestLock-Hackathon-Deck-2026-09-10.pptx)
-- [Visually verified evidence deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-2026-09-10.pdf)
-- [90-second edited evidence overview and transcript](https://attestlock-web-production.up.railway.app/media/index.html) — synthetic narration; not an uncut signing recording.
+- [Visually verified evidence deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-2026-09-12.pdf)
 
 ## Hackathon timing
 
