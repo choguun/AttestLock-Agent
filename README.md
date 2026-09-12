@@ -2,66 +2,62 @@
 
 **Collateral stays on Ethereum; Creditcoin acts only on a proof.**
 
-AttestLock is a DeFi-first, proof-gated credit prototype for the BUIDL CTC 2026 Fall hackathon. A borrower locks mock USDC in a Sepolia escrow. The worker waits for Attestcoin attestation, builds the official transaction proof, and submits it to Creditcoin. Only the destination contract can open a seven-day credit line, and only the borrower can draw it.
+[Live testnet app](https://attestlock-web-production.up.railway.app/) · [Project deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-2026-09-12.pdf) · [Integration documentation](docs/ATTESTCOIN.md)
 
-> Current status: all five contracts are publicly verified. A real 100 mUSDC lock opened 50 mUSD through native `0x0FD2`, followed by a borrower-signed draw. September 9 added a Chrome/Rabby approval, new lock, signed queue, refresh recovery and second native line; no draw on that second line is claimed. Junk refusal, unused-query tamper and identical-query replay are recorded. Post-maturity repayment, final live-demo/uncut videos and submission acceptance remain gated. See [live observations](docs/LIVE_TESTNET.md), the [claim ledger](docs/CLAIMS.md) and [completion status](docs/COMPLETION.md).
+## Project sector
 
-**Live testnet app:** https://attestlock-web-production.up.railway.app
+- **Sector:** DeFi & AI
+- **Positioning:** Proof-gated cross-chain credit origination
+- **Supporting feature:** An automated proof-processing agent
+- **Primary hackathon track:** DeFi. The shipped agent runs deterministic proof workflows, not LLM-driven lending decisions.
 
-## Why Attestcoin is load-bearing
+## Project description
 
-The line-opening path is fail-closed:
+AttestLock Agent is a DeFi prototype that turns an Ethereum collateral lock into a proof-gated credit line on Creditcoin—without bridging the collateral.
 
-```text
-Sepolia LockVault
-  └─ successful CollateralLocked event
-       └─ Attestcoin Merkle + continuity proof
-            └─ Creditcoin BlockProver 0x0FD2
-                 └─ exact sender, destination, receipt, event, token, amount, and term checks
-                      └─ CreditPool.openLine (only ASC)
-                           └─ borrower signs borrow()
-```
+Users lock mock USDC in a Sepolia vault. An automated worker obtains an Attestcoin proof, and a Creditcoin smart contract verifies it through the native BlockProver precompile (`0x0FD2`). The contract checks the successful transaction, exact vault event, borrower, token, amount, remaining lock term, and replay protection before opening a seven-day credit line at 50% loan-to-value.
 
-No valid proof means no line. The relayer cannot call `openLine`, draw another borrower's line, withdraw their collateral, or transfer their funds. Repayment is permissionless using the payer's own approved tokens; the worker never initiates repayment.
+The borrower explicitly signs each MockUSD draw; the worker cannot borrow or transfer user assets. Borrowing and repayment update an on-chain borrower profile, creating an auditable credit history on Creditcoin.
 
-## Demo flow
+Built as a reference for lending and risk teams, AttestLock demonstrates how verified cross-chain collateral facts can support credit origination. It is testnet-only: trustless liquidation and source-chain release enforcement remain future work.
 
-1. Connect a wallet and switch to Sepolia.
-2. Claim the one-time mock USDC faucet.
-3. Approve and lock `100 mUSDC` for 15 days.
-4. Sign short-lived EIP-712 data bound to the exact lock transaction; it is queued automatically.
-5. Watch `queued → waiting_attestation → proving → preflight → submitting → executed`.
-6. Switch to Creditcoin testnet and borrow up to `50 mUSD` with the borrower wallet.
-7. Paste the pre-filled junk transaction and see a deterministic refusal with no state change.
+## USC integration summary
 
-The prototype does **not** claim trustless cross-chain liquidation or release. Sepolia collateral is withdrawable by the borrower after expiry; Attestcoin writability is roadmap work.
+AttestLock uses USC (Attestcoin) to verify Ethereum collateral facts on Creditcoin without bridging the collateral.
 
-## Repository map
+After a user locks mock USDC in the Sepolia vault, the worker waits for attestation and obtains the transaction’s Merkle and continuity proofs using `@gluwa/usc-sdk`. It submits these proofs to `AttestLockASC` on Creditcoin, which calls the native BlockProver precompile at `0x0FD2`.
 
-| Area                       | Purpose                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `contracts/src/source`     | Six-decimal test collateral and Sepolia escrow                                  |
-| `contracts/src/creditcoin` | Proof-gated ASC, bounded credit pool, borrow asset                              |
-| `contracts/test`           | Positive, negative, replay, maturity, repayment, and invariant tests            |
-| `apps/worker`              | PostgreSQL job state, signed API, proof builder, preflight, relayer             |
-| `apps/web`                 | Vite React wallet and evidence console                                          |
-| `packages/shared`          | ABIs, network constants, API types, deterministic status copy                   |
-| `docs`                     | Integration, architecture, threat model, demo, evidence, and submission package |
-| `deployments`              | Verified live manifests plus clearly named example templates                    |
+The contract validates the source chain, successful receipt, exact vault event, borrower, supported token, collateral amount, and remaining lock term. Query-ID and lock-ID replay protection prevent duplicate credit creation. Only after these checks pass does it open a seven-day MockUSD credit line at 50% LTV.
 
-## Stack and pinned protocol dependencies
+USC is essential to the flow: **without a valid proof, no credit line can open.** Borrowing remains explicitly wallet-signed; the worker cannot draw funds. The prototype is testnet-only and does not yet provide trustless liquidation or source-chain release enforcement.
 
-- Solidity `0.8.28`, Foundry, OpenZeppelin `5.4.0`
-- `@gluwa/asc-contracts@0.2.1`
-- `@gluwa/usc-sdk@0.18.0`
-- TypeScript, Fastify, PostgreSQL, ethers v6
-- React, Vite, pnpm workspace
+## Recorded testnet evidence
 
-The proof payload and decoder follow the [current official Attestcoin examples](https://github.com/gluwa/attestcoin-protocol-examples), not older tutorial paths retained in the research snapshot.
+The September 12, 2026 browser recording completed a new lock, native proof, and borrower-signed draw on the same line:
 
-## Local verification
+| Step                    | Verified result     | Receipt                                                                                                                            |
+| ----------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Sepolia escrow          | 100 mUSDC locked    | [Block 11,687,768](https://eth-sepolia.blockscout.com/tx/0x9a46973c40b14bc6d03379cf6e6f9080d3f691273b2cff7dbd021eadf56442a8)       |
+| Creditcoin native proof | 50 mUSD line opened | [Block 5,474,092](https://creditcoin-testnet.blockscout.com/tx/0xe8425adb65010af562d37c133607723fadfe8b8baf3b2c736ad91ab6ee75ab87) |
+| Borrower draw           | 50 mUSD transferred | [Block 5,474,098](https://creditcoin-testnet.blockscout.com/tx/0xaabe12b96e8ba5fffc1121e490edbffd8eec7fcc50a22c251d17404c69fc722a) |
 
-Prerequisites: Node 22+, pnpm 11.24+, Foundry v1.7.1, and PostgreSQL 17 for the persistence and concurrency integration tests.
+The proof job took **8m 15s**, including attestation wait, and used **287,238 gas**. A separate token approval received a [`WRONG_SOURCE_CONTRACT` refusal](https://attestlock-worker-production.up.railway.app/api/jobs/82447acc-d03f-4994-8335-974e1c555f6f), without a destination submission. The deck includes real captures and explorer links.
+
+The 90-second prototype video is recorded locally; public upload remains pending. Time cuts and off-capture wallet signatures are disclosed. This new line matures **September 19, 2026 at 08:40:45 UTC**. Its recording is not evidence of post-maturity repayment or completed submission acceptance. See [live observations](docs/LIVE_TESTNET.md) and [remaining gates](docs/COMPLETION.md).
+
+## Try the prototype
+
+1. Connect a testnet wallet and switch to Sepolia.
+2. Claim the one-time **1,000 mUSDC** faucet, approve, and lock **100 mUSDC** for 15 days.
+3. Sign the short-lived authorization to queue that lock transaction.
+4. Follow attestation and proof status, then switch to Creditcoin testnet (`102031`).
+5. Sign a draw of up to **50 mUSD**, or try the non-vault refusal example.
+
+Attestation time varies. Preview mode disables transaction writes. Repayment uses the payer’s approved tokens, can come from a third party, and remains available after maturity. The worker never initiates borrowing or repayment.
+
+## Run locally
+
+Requires Node 22+, pnpm 11.24+, Foundry v1.7.1, and PostgreSQL 17 for database integration tests.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -69,113 +65,34 @@ pnpm install --frozen-lockfile
 pnpm verify
 pnpm contracts:coverage
 pnpm test:e2e
-```
-
-Without `DATABASE_TEST_URL`, the PostgreSQL integration suite is skipped; all other tests run without secrets. To exercise it:
-
-```bash
-export DATABASE_TEST_URL=postgres://attestlock:attestlock@127.0.0.1:5432/attestlock_test
-pnpm --filter @attestlock/worker test
-```
-
-Run the UI in safe preview mode:
-
-```bash
 pnpm --filter @attestlock/web dev
 ```
 
-Run the worker only after copying `apps/worker/.env.example` to `apps/worker/.env` and setting dedicated testnet values:
+Set `DATABASE_TEST_URL` to a dedicated test database to run PostgreSQL tests; they skip when it is absent. Configure [worker environment variables](apps/worker/.env.example) before running `pnpm --filter @attestlock/worker dev`. Use dedicated testnet keys only; never commit secrets or put them in frontend variables.
 
-```bash
-pnpm --filter @attestlock/worker dev
-```
+## Implementation
 
-## Testnet deployment
+| Area                                | Responsibility                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------- |
+| [Contracts](contracts/src)          | Sepolia vault, native proof verification, credit pool, and borrower profile        |
+| [Worker](apps/worker)               | Signed queue API, PostgreSQL persistence, proof acquisition, simulation, and relay |
+| [Web](apps/web)                     | Wallet actions, job recovery, line history, and evidence views                     |
+| [Shared package](packages/shared)   | ABIs, network constants, API types, and status messages                            |
+| [Deployment manifests](deployments) | Source and destination contract provenance                                         |
 
-Never use a mainnet key. Import a dedicated testnet deployer into Foundry's encrypted local keystore; keep the separate relayer only in the worker's sealed environment.
+**Stack:** Solidity `0.8.28`, Foundry, OpenZeppelin `5.4.0`, `@gluwa/asc-contracts@0.2.1`, `@gluwa/usc-sdk@0.18.0`, TypeScript, Fastify, PostgreSQL, ethers v6, React, and Vite.
 
-```bash
-cast wallet import attestlock-deployer --interactive
-export DEPLOYER_ADDRESS=0x...
-forge script contracts/script/DeploySource.s.sol:DeploySource \
-  --root contracts --rpc-url "$SEPOLIA_RPC_URL" --broadcast \
-  --account attestlock-deployer --sender "$DEPLOYER_ADDRESS"
+**API:** `POST /api/challenges`, `POST /api/jobs`, `GET /api/jobs/:id`, `GET /api/jobs?wallet=…`, `GET /api/events?wallet=…` (SSE), `GET /api/stats`, `GET /health`, and `GET /ready`. Queue requests require transaction-bound EIP-712 authorization and quotas. Only the configured ASC can open lines.
 
-export SOURCE_TOKEN_ADDRESS=0x...
-export SOURCE_VAULT_ADDRESS=0x...
-forge script contracts/script/DeployCreditcoin.s.sol:DeployCreditcoin \
-  --root contracts --rpc-url https://rpc.cc3-testnet.creditcoin.network --broadcast \
-  --account attestlock-deployer --sender "$DEPLOYER_ADDRESS"
-```
+## Documentation and limitations
 
-Before any broadcast, run `VERIFIED_CI_RUN=<successful-main-run> PROVENANCE_FILE=.tmp/deployment-provenance.json pnpm deployments:prepare` from clean merged main. Keep that provenance unchanged. Generate sanitized manifests from the corresponding broadcasts and compiled artifacts:
+- [Architecture](docs/ARCHITECTURE.md) and [USC / Attestcoin integration](docs/ATTESTCOIN.md)
+- [Threat model](docs/THREAT_MODEL.md) and [claim ledger](docs/CLAIMS.md)
+- [Market thesis](docs/MARKET.md) and [competitor comparison](docs/COMPETITIVE.md)
+- [September 12 project deck](docs/deck/AttestLock-Hackathon-Deck-2026-09-12.pdf)
 
-```bash
-PROVENANCE_FILE=.tmp/deployment-provenance.json \
-DEPLOYMENT_NETWORK=sepolia \
-BROADCAST_FILE=contracts/broadcast/DeploySource.s.sol/11155111/run-latest.json \
-OUTPUT_FILE=deployments/sepolia.json \
-DEPLOYMENT_RPC_URL="$SEPOLIA_RPC_URL" \
-pnpm deployments:manifest
-
-pnpm evidence:live
-```
-
-Set `REQUIRE_VERIFIED=true` when generating final manifests. The generator uses public Sepolia and Creditcoin Blockscout verification endpoints, so an Etherscan API key is not required. The wallet may still link to Etherscan for source receipts.
-
-Deployment is not “done” until the proof transaction and borrower-signed borrow are visible on both explorers.
-
-Recheck the recorded draw and historical positive/negative states without a wallet or signing credentials:
-
-```bash
-BORROW_TX_HASH=0xb631739d1a05410e3ca6a26b88de068ea514cec1d18b758d8aebde49e684dba4 pnpm evidence:origination
-```
-
-This publishes an explicitly partial `borrow-demonstrated` snapshot. `pnpm evidence:live` remains the strict final checker and requires the real post-maturity repayment transaction; neither command sends transactions.
-
-## API
-
-| Route                      | Purpose                                                          |
-| -------------------------- | ---------------------------------------------------------------- |
-| `POST /api/challenges`     | Create a `{ wallet, txHash }` EIP-712 authorization              |
-| `POST /api/jobs`           | Queue one source transaction after signature and quota checks    |
-| `GET /api/jobs/:id`        | Read one proof job                                               |
-| `GET /api/jobs?wallet=…`   | List a wallet's jobs                                             |
-| `GET /api/events?wallet=…` | Stream job updates over SSE                                      |
-| `GET /api/stats`           | Aggregate jobs, on-chain lines/draws, atomic totals, attestation |
-| `GET /health`              | Railway health check                                             |
-| `GET /ready`               | Schema-v2 DB/RPC/bindings/ChainInfo/prover/relayer readiness     |
-
-The queue is idempotent by case-insensitive `(wallet, transaction hash)`. Typed challenges bind the wallet, transaction, Sepolia chain, source vault, API origin, nonce, and expiry. Quota enforcement and job claiming are transactional, and a wrong wallet cannot reserve another borrower's transaction. Different judges may queue the same junk hash; ownership is validated before proof acquisition.
-
-Preview mode disables all transaction writes even if addresses are configured. A live production build additionally requires the API, all five contract addresses, and a known non-vault refusal transaction. This is intentional: a polished preview is not presented as chain evidence.
-
-## Security boundaries
-
-- The worker validates the Sepolia sender, destination, receipt, and lock before paying proof costs.
-- The ASC independently verifies the proof-contained transaction sender/destination and every material receipt/event field.
-- Query IDs and proof-derived lock IDs are both one-time.
-- `CreditPool.openLine` is callable only by the immutable ASC configured once.
-- The borrower must sign `borrow`; repayment remains available after maturity.
-- A Creditcoin-native borrower profile counts only proof-opened lines and real draws/repayments.
-- Wallet transaction hashes are journaled before confirmation so refresh recovery does not rebroadcast them.
-- Transient infrastructure failures retry with bounded backoff; policy failures are terminal refusals.
-
-See [Threat model](docs/THREAT_MODEL.md) for assumptions and intentionally unshipped controls.
-
-## Judge package
-
-- [Attestcoin integration](docs/ATTESTCOIN.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Market and ecosystem thesis](docs/MARKET.md)
-- [Competitive positioning](docs/COMPETITIVE.md)
-- [Visually verified evidence deck (PDF)](docs/deck/AttestLock-Hackathon-Deck-2026-09-12.pdf)
-
-## Hackathon timing
-
-The extended DoraHacks deadline is **September 13, 2026 at 23:59 ET**, equivalent to **September 14 at 10:59 Asia/Bangkok**. The internal freeze target is one day earlier.
-Winners are scheduled to be announced on **September 20, 2026**.
+V1 uses mock assets and excludes interest, liquidation, and trustless source-chain release/default enforcement. Source collateral becomes withdrawable by its borrower after expiry; Creditcoin cannot seize it. Demo activity is not independent user validation, and no hackathon score or placement is guaranteed.
 
 ## License
 
-Original AttestLock code is MIT. Upstream libraries retain their licenses; archived research attribution is separate. Testnet software only; not audited and not financial advice.
+Original code is [MIT licensed](LICENSE). Dependencies retain their own licenses; archived research has separate attribution. Testnet software only, unaudited, and not financial advice.
